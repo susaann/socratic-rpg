@@ -4897,14 +4897,20 @@ ${knowledgeMapRef}
 
     listEl.innerHTML = archives.map(a => {
       const isPet = a.type === 'pet';
+      const isHw = a.type === 'homework';
       const firstMsg = a.messages.find(m => m.role === 'assistant');
       const preview = firstMsg ? firstMsg.content.substring(0, 60) + '…' : '';
-      const titleHtml = isPet
-        ? `<div class="history-item-title">🐣 萌宠授课 · ${a.topic || '未命名'}</div>`
-        : `<div class="history-item-title" title="${this.escapeHtml(a.sectionTitle || '')}">第${a.chapterNum}章 ${a.sectionTitle}</div>`;
-      const metaHtml = isPet
-        ? `${a.petName || '萌宠'} · ${a.dateFormatted} · ${a.messages.length}轮对话 · 🥚${a.goldenEggs || 0}金蛋`
-        : `${a.teacherName} · ${a.dateFormatted} · ${a.messages.length}轮对话`;
+      let titleHtml, metaHtml;
+      if (isPet) {
+        titleHtml = `<div class="history-item-title">🐣 萌宠授课 · ${a.topic || '未命名'}</div>`;
+        metaHtml = `${a.petName || '萌宠'} · ${a.dateFormatted} · ${a.messages.length}轮对话 · 🥚${a.goldenEggs || 0}金蛋`;
+      } else if (isHw) {
+        titleHtml = `<div class="history-item-title">✏️ 作业批改 · ${a.fileName || '未命名'}</div>`;
+        metaHtml = `${a.teacherName} · ${a.dateFormatted} · ${a.messages.length}轮对话`;
+      } else {
+        titleHtml = `<div class="history-item-title" title="${this.escapeHtml(a.sectionTitle || '')}">第${a.chapterNum}章 ${a.sectionTitle}</div>`;
+        metaHtml = `${a.teacherName} · ${a.dateFormatted} · ${a.messages.length}轮对话`;
+      }
       return `<div class="history-item" data-id="${a.id}" onclick="App.viewArchiveDetail('${a.id}')">
         <div class="history-item-top">
           <div class="history-item-info">
@@ -4932,41 +4938,52 @@ ${knowledgeMapRef}
     contentEl.style.display = 'block';
 
     const isPet = archive.type === 'pet';
+    const isHw = archive.type === 'homework';
     const teacherName = archive.teacherName || archive.petName || '导师';
     const teacher = this.state.teachers.find(t => t.name === teacherName);
     const avatarColor = teacher ? teacher.avatarColor : '#8B6914';
-    const teacherAvatar = isPet ? '🐣' : teacherName.charAt(0);
+    const teacherAvatar = isPet ? '🐣' : isHw ? '✏️' : teacherName.charAt(0);
 
     let tokenInfoHtml = '';
-    const tuPromptTotal = (archive.tokenUsage.promptCacheHit || 0) + (archive.tokenUsage.promptCacheMiss || 0) + (archive.tokenUsage.promptTokens || 0);
-    if (archive.tokenUsage && (tuPromptTotal + (archive.tokenUsage.completionTokens || 0)) > 0) {
-      const tu = archive.tokenUsage;
-      const hit = tu.promptCacheHit || 0;
-      const miss = tu.promptCacheMiss || 0;
-      const totalPrompt = hit + miss + (tu.promptTokens || 0);
-      const totalK = ((totalPrompt + (tu.completionTokens || 0)) / 1000).toFixed(1);
-      const hitK = (hit / 1000).toFixed(1);
-      const missK = (miss / 1000).toFixed(1);
-      const completeK = ((tu.completionTokens || 0) / 1000).toFixed(1);
-      const cachePct = (hit + miss) > 0 ? Math.round(hit / (hit + miss) * 100) : 0;
-      const cnyVal = tu.cost ? tu.cost.cny : calcCost(hit, miss, tu.completionTokens || 0).cny;
-      const cnyStr = cnyVal < 0.01 ? '< ¥0.01' : '≈ ¥' + cnyVal.toFixed(4);
-      const cacheDetail = (hit + miss) > 0
-        ? `💾缓存${hitK}K · ✨新${missK}K · 命中${cachePct}%`
-        : `（历史数据，无缓存细分）`;
-      tokenInfoHtml = `<div style="font-size:11px;color:var(--accent);margin-top:4px;line-height:1.5">
-        📊 ${totalK}K tokens ${cacheDetail} · ${cnyStr}</div>`;
+    if (!isHw) {
+      const tuPromptTotal = (archive.tokenUsage.promptCacheHit || 0) + (archive.tokenUsage.promptCacheMiss || 0) + (archive.tokenUsage.promptTokens || 0);
+      if (archive.tokenUsage && (tuPromptTotal + (archive.tokenUsage.completionTokens || 0)) > 0) {
+        const tu = archive.tokenUsage;
+        const hit = tu.promptCacheHit || 0;
+        const miss = tu.promptCacheMiss || 0;
+        const totalPrompt = hit + miss + (tu.promptTokens || 0);
+        const totalK = ((totalPrompt + (tu.completionTokens || 0)) / 1000).toFixed(1);
+        const hitK = (hit / 1000).toFixed(1);
+        const missK = (miss / 1000).toFixed(1);
+        const completeK = ((tu.completionTokens || 0) / 1000).toFixed(1);
+        const cachePct = (hit + miss) > 0 ? Math.round(hit / (hit + miss) * 100) : 0;
+        const cnyVal = tu.cost ? tu.cost.cny : calcCost(hit, miss, tu.completionTokens || 0).cny;
+        const cnyStr = cnyVal < 0.01 ? '< ¥0.01' : '≈ ¥' + cnyVal.toFixed(4);
+        const cacheDetail = (hit + miss) > 0
+          ? `💾缓存${hitK}K · ✨新${missK}K · 命中${cachePct}%`
+          : `（历史数据，无缓存细分）`;
+        tokenInfoHtml = `<div style="font-size:11px;color:var(--accent);margin-top:4px;line-height:1.5">
+          📊 ${totalK}K tokens ${cacheDetail} · ${cnyStr}</div>`;
+      }
     }
 
-    const headerHtml = isPet
-      ? `<div style="font-size:18px;font-weight:700;margin-bottom:4px">🐣 萌宠授课 · ${archive.topic || '未命名'}</div>
+    let headerHtml;
+    if (isPet) {
+      headerHtml = `<div style="font-size:18px;font-weight:700;margin-bottom:4px">🐣 萌宠授课 · ${archive.topic || '未命名'}</div>
         <div style="font-size:13px;color:var(--text-secondary)">
           ${archive.petName || '萌宠'} · ${archive.dateFormatted} · 共 ${archive.messages.length} 轮对话 · 🥚 ${archive.goldenEggs || 0} 金蛋
-        </div>`
-      : `<div style="font-size:18px;font-weight:700;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${this.escapeHtml(archive.sectionTitle)}">第${archive.chapterNum}章 ${archive.sectionTitle}</div>
+        </div>`;
+    } else if (isHw) {
+      headerHtml = `<div style="font-size:18px;font-weight:700;margin-bottom:4px">✏️ 作业批改 · ${archive.fileName || '未命名'}</div>
+        <div style="font-size:13px;color:var(--text-secondary)">
+          ${archive.teacherName} 批改 · ${archive.dateFormatted} · 共 ${archive.messages.length} 轮对话
+        </div>`;
+    } else {
+      headerHtml = `<div style="font-size:18px;font-weight:700;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${this.escapeHtml(archive.sectionTitle)}">第${archive.chapterNum}章 ${archive.sectionTitle}</div>
         <div style="font-size:13px;color:var(--text-secondary)">
           ${archive.teacherName} 授课 · ${archive.dateFormatted} · 共 ${archive.messages.length} 轮对话
         </div>`;
+    }
 
     contentEl.innerHTML = `
       <div style="margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid var(--accent)">
@@ -4979,18 +4996,28 @@ ${knowledgeMapRef}
       </div>
       ${archive.messages.map(m => {
         const isUser = m.role === 'user';
-        const senderName = isUser ? '旅者'
-          : isPet ? (archive.petName || '萌宠')
-          : teacherName;
-        const roleTag = isUser ? '学生'
-          : isPet ? '萌宠'
-          : '导师';
-        const displayAvatar = isUser ? '旅'
-          : isPet ? (archive.petEmoji || '🐣')
-          : teacherAvatar;
-        const displayBg = isUser ? '#a08060'
-          : isPet ? '#e8a440'
-          : avatarColor;
+        let senderName, roleTag, displayAvatar, displayBg;
+        if (isUser) {
+          senderName = '旅者';
+          roleTag = '学生';
+          displayAvatar = '旅';
+          displayBg = '#a08060';
+        } else if (isPet) {
+          senderName = archive.petName || '萌宠';
+          roleTag = '萌宠';
+          displayAvatar = archive.petEmoji || '🐣';
+          displayBg = '#e8a440';
+        } else if (isHw) {
+          senderName = teacherName;
+          roleTag = '导师';
+          displayAvatar = '师';
+          displayBg = avatarColor;
+        } else {
+          senderName = teacherName;
+          roleTag = '导师';
+          displayAvatar = teacherAvatar;
+          displayBg = avatarColor;
+        }
         return `<div class="history-msg">
           <div class="history-msg-header">
             <div class="history-msg-avatar" style="background:${displayBg}">${displayAvatar}</div>
@@ -5020,12 +5047,20 @@ ${knowledgeMapRef}
   downloadArchive(id) {
     const archive = this.state.conversationArchives.find(a => a.id === id);
     if (!archive) return;
+    const isHw = archive.type === 'homework';
     let md = `# 视界探索者教团 · 教学对话存档\n\n`;
     md += `- **日期**：${archive.dateFormatted}\n`;
-    md += `- **章节**：第${archive.chapterNum}章 ${archive.sectionTitle}\n`;
-    md += `- **导师**：${archive.teacherName}\n`;
-    md += `- **对话轮数**：${archive.messages.length}\n`;
-    md += `- **模型**：${MODEL_CONFIG.name}\n`;
+    if (isHw) {
+      md += `- **类型**：作业批改\n`;
+      md += `- **作业文件**：${archive.fileName || '粘贴内容'}\n`;
+      md += `- **导师**：${archive.teacherName}\n`;
+      md += `- **对话轮数**：${archive.messages.length}\n`;
+    } else {
+      md += `- **章节**：第${archive.chapterNum}章 ${archive.sectionTitle}\n`;
+      md += `- **导师**：${archive.teacherName}\n`;
+      md += `- **对话轮数**：${archive.messages.length}\n`;
+      md += `- **模型**：${MODEL_CONFIG.name}\n`;
+    }
 
     if (archive.tokenUsage) {
       const tu = archive.tokenUsage;
@@ -5046,7 +5081,12 @@ ${knowledgeMapRef}
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const safeFilename = `教团会话_第${archive.chapterNum}章_${archive.sectionTitle}_${archive.dateFormatted.replace(/[/\\:]/g,'_')}.md`;
+    let safeFilename;
+    if (isHw) {
+      safeFilename = `作业批改_${archive.fileName || '粘贴'}_${archive.dateFormatted.replace(/[/\\:]/g,'_')}.md`;
+    } else {
+      safeFilename = `教团会话_第${archive.chapterNum}章_${archive.sectionTitle}_${archive.dateFormatted.replace(/[/\\:]/g,'_')}.md`;
+    }
     a.download = safeFilename;
     a.click();
     URL.revokeObjectURL(url);
@@ -5426,6 +5466,8 @@ ${knowledgeMapRef}
   },
 
   endHomework() {
+    // 先保存到会话归档
+    this.saveHomeworkArchive();
     this.state.homeworkActive = false;
     this.state.homeworkMessages = [];
     this.state.homeworkContent = '';
@@ -5435,7 +5477,25 @@ ${knowledgeMapRef}
     $('#btn-end-homework').disabled = true;
     $('#hw-messages').innerHTML = '';
     $('#hw-chat-input').value = '';
-    this.hwAddSystemMessage('📝 作业批改已结束。');
+    this.hwAddSystemMessage('📝 作业批改已结束（对话已归档）。');
+  },
+
+  saveHomeworkArchive() {
+    const msgs = this.state.homeworkMessages;
+    if (!msgs || msgs.length < 2) return;
+    const teacher = this.getHomeworkTeacher();
+    const archive = {
+      id: 'hw_' + Date.now(),
+      type: 'homework',
+      date: new Date().toISOString(),
+      dateFormatted: formatDate(new Date()),
+      teacherId: this.state.homeworkTeacherId,
+      teacherName: teacher.name,
+      fileName: this.state.homeworkFileName || '粘贴内容',
+      messages: msgs.map(m => ({ role: m.role, content: m.content })),
+    };
+    this.state.conversationArchives.unshift(archive);
+    LS.set('conversation_archives', this.state.conversationArchives);
   },
 
   renderHomeworkView() {
