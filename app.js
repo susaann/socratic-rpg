@@ -6200,10 +6200,13 @@ ${learnedWordsStr}
       return;
     }
 
-    const colors = {
-      '三月七': '#f093fb', '甘雨': '#667eea', '刻晴': '#764ba2',
-      '格里高尔': '#8B6914', '以实玛丽': '#4facfe', '十四行诗': '#43e97b'
-    };
+    const colors = {};
+    this.state.teachers.forEach(t => {
+      colors[t.namePure] = t.avatarColor;
+      colors[t.name] = t.avatarColor;
+      const short = t.name.replace(/[（(].*[）)]/, '').trim();
+      if (short !== t.name) colors[short] = t.avatarColor;
+    });
 
     container.innerHTML = unique.map((m, idx) => {
       const color = colors[m.sender] || '#667eea';
