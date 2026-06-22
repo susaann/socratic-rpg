@@ -1,0 +1,44 @@
+/* ============================================
+   自定义字体配置
+   ============================================
+   把字体文件（.ttf / .otf / .woff / .woff2）
+   放到这个 fonts/ 目录下，然后按下方模板声明。
+   保存后硬刷新页面（Ctrl+Shift+R）即可生效。
+
+   示例：
+   @font-face {
+     font-family: 'MyCustomFont';
+     src: url('my-font.ttf') format('truetype');
+     font-weight: normal;
+     font-style: normal;
+   }
+   @font-face {
+     font-family: 'MyCustomFont';
+     src: url('my-font-bold.ttf') format('truetype');
+     font-weight: bold;
+     font-style: normal;
+   }
+
+   声明完后，把下面 :root 里的 --custom-font 改成你的字体名。
+   多个字体用逗号分隔，系统字体会作为后备。
+   ============================================ */
+
+:root {
+  /* 改下面这行 ↓ 把你的字体名放在最前面 */
+  --font: 'CustomFont', 'Noto Serif SC', 'Source Han Serif SC', serif;
+}
+[data-theme="dark"] {
+  --font: 'CustomFont', 'Noto Serif SC', 'Source Han Serif SC', serif;
+}
+
+/* ── 在下面写你的 @font-face 声明 ── */
+
+/* 示例（取消注释并修改）： */
+
+@font-face {
+  font-family: '汇文明朝';
+  src: url('汇文明朝体GBKv1.001.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+

@@ -1,0 +1,56 @@
+[
+  {
+    "_comment": "格里高尔 · 觉醒者 — 坚韧之橡树守护导师",
+    "id": "gregor",
+    "name": "格里高尔（Gregor）",
+    "namePure": "格里高尔",
+    "title": "坚韧之橡树守护导师",
+    "orderRole": "守护导师",
+    "avatarColor": "#8B6914"
+  },
+  {
+    "_comment": "刻晴 · 锐刃 — 坚韧之橡树使徒",
+    "id": "keqing",
+    "name": "刻晴（Keqing）",
+    "namePure": "刻晴",
+    "title": "坚韧之橡树使徒",
+    "orderRole": "使徒",
+    "avatarColor": "#764ba2"
+  },
+  {
+    "_comment": "以实玛丽 · 航行者 — 联结之柳树守护导师",
+    "id": "ishmael_v2",
+    "name": "以实玛丽（Ishmael）",
+    "namePure": "以实玛丽",
+    "title": "联结之柳树守护导师",
+    "orderRole": "守护导师",
+    "avatarColor": "#ffb226"
+  },
+  {
+    "_comment": "三月七 · 微光 — 联结之柳树使徒",
+    "id": "march7",
+    "name": "三月七（March 7th）",
+    "namePure": "三月七",
+    "title": "联结之柳树使徒",
+    "orderRole": "使徒",
+    "avatarColor": "#f093fb"
+  },
+  {
+    "_comment": "十四行诗 · 炼金术士 — 严谨之月桂守护导师",
+    "id": "sonetto",
+    "name": "十四行诗（Sonetto）",
+    "namePure": "十四行诗",
+    "title": "严谨之月桂守护导师",
+    "orderRole": "守护导师",
+    "avatarColor": "#43e97b"
+  },
+  {
+    "_comment": "甘雨 · 津梁 — 严谨之月桂使徒",
+    "id": "ganyu",
+    "name": "甘雨（Ganyu）",
+    "namePure": "甘雨",
+    "title": "严谨之月桂使徒",
+    "orderRole": "使徒",
+    "avatarColor": "#667eea"
+  }
+]

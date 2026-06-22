@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📐 LaTeX 数学符号面板</title>
+<link rel="stylesheet" href="lib/katex/katex.min.css">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  background: #1a1a2e;
+  display: flex; justify-content: center; align-items: center;
+  min-height: 100vh; user-select: none; overflow: hidden;
+}
+
+#app {
+  width: 520px;
+  background: #16213e;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+/* 标题栏 */
+#titlebar {
+  background: #0f3460;
+  padding: 12px 18px;
+  display: flex; align-items: center; gap: 10px;
+  cursor: move;
+}
+#titlebar .icon { font-size: 20px; }
+#titlebar .title { font-size: 15px; font-weight: 700; color: #e0e0e0; flex: 1; }
+#titlebar .btn-title {
+  width: 28px; height: 28px; border: none; border-radius: 6px;
+  cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;
+  background: transparent; color: #aaa; transition: all 0.15s;
+}
+#titlebar .btn-title:hover { background: rgba(255,255,255,0.1); color: #fff; }
+#titlebar .btn-close:hover { background: #e94560; color: #fff; }
+
+/* 输出区 */
+#output-area {
+  padding: 14px 16px 6px;
+  position: relative;
+}
+#output-box {
+  width: 100%; min-height: 56px; max-height: 120px;
+  background: #0a0d14; color: #4fc3f7;
+  border: 1px solid #1a3a5c; border-radius: 10px;
+  padding: 12px 40px 12px 14px;
+  font-family: 'Consolas', 'Courier New', 'JetBrains Mono', monospace;
+  font-size: 15px; line-height: 1.6;
+  resize: none; overflow-y: auto;
+  outline: none;
+  word-break: break-all;
+}
+#output-box:focus { border-color: #4fc3f7; }
+#output-box::placeholder { color: #3a5a7a; }
+
+	/* 实时 LaTeX 预览区 */
+	#preview-area {
+	  margin: 4px 16px 10px;
+	  min-height: 48px;
+	  padding: 12px 16px;
+	  background: #0d1117;
+	  border: 1px dashed #1a3a5c;
+	  border-radius: 10px;
+	  display: flex; align-items: center; justify-content: center;
+	  font-size: 20px; color: #e0e0e0;
+	  overflow-x: auto; white-space: nowrap;
+	}
+	#preview-area:empty::after {
+	  content: '预览区：在上方输入 LaTeX，此处实时渲染';
+	  color: #3a5a7a; font-size: 13px; font-style: italic;
+	}
+	#preview-area .katex-display { margin: 0; }
+	#preview-area .katex { font-size: 1.2em; }
+	#preview-error {
+	  color: #ef5350; font-size: 13px;
+	  margin: 0 16px 6px; min-height: 0;
+	}
+
+#output-actions {
+  position: absolute; top: 18px; right: 22px;
+  display: flex; gap: 4px;
+}
+.btn-action {
+  width: 30px; height: 30px; border: 1px solid #1a3a5c;
+  border-radius: 6px; cursor: pointer; font-size: 14px;
+  background: #0f3460; color: #aaa;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.btn-action:hover { background: #1a4a7a; color: #fff; border-color: #4fc3f7; }
+.btn-action.copy-ok { background: #2e7d32; color: #fff; border-color: #4caf50; }
+
+/* 标签栏 */
+#tab-bar {
+  display: flex; gap: 2px; padding: 0 12px;
+  border-bottom: 1px solid #1a3a5c; overflow-x: auto;
+}
+.tab-btn {
+  padding: 8px 14px; border: none; border-radius: 8px 8px 0 0;
+  cursor: pointer; font-size: 13px; font-weight: 600;
+  background: transparent; color: #6a8aaa;
+  transition: all 0.15s; white-space: nowrap;
+}
+.tab-btn:hover { color: #c0d0e0; background: rgba(255,255,255,0.03); }
+.tab-btn.active { color: #4fc3f7; background: #0a1628; }
+
+/* 按钮面板 */
+#symbol-panel {
+  padding: 14px;
+  display: flex; flex-wrap: wrap; gap: 6px;
+  max-height: 320px; overflow-y: auto;
+  background: #0a1628;
+}
+.sym-btn {
+  padding: 8px 12px; border: 1px solid #1a3050;
+  border-radius: 8px; cursor: pointer; font-size: 14px;
+  background: #112240; color: #ccddee;
+  transition: all 0.12s; white-space: nowrap;
+  font-family: 'Consolas', 'Courier New', monospace;
+  min-width: 44px; text-align: center;
+}
+.sym-btn:hover { background: #1a3a6a; border-color: #4fc3f7; color: #fff; transform: translateY(-1px); }
+.sym-btn:active { transform: scale(0.95); background: #0f3460; }
+
+.sym-btn.template-btn {
+  color: #ffb74d; border-color: #5a3a1a; background: #1e1a10;
+}
+.sym-btn.template-btn:hover { background: #3a2a12; border-color: #ffb74d; }
+
+/* toast */
+#toast {
+  position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+  background: #2e7d32; color: #fff; padding: 10px 24px;
+  border-radius: 20px; font-size: 14px; font-weight: 600;
+  pointer-events: none; opacity: 0; transition: opacity 0.25s;
+  z-index: 9999;
+}
+#toast.show { opacity: 1; }
+
+/* 底部提示 */
+#tip-bar {
+  padding: 8px 16px; font-size: 11px; color: #4a6a8a;
+  text-align: center; border-top: 1px solid #1a3a5c;
+  background: #0a1628;
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- 标题栏 -->
+  <div id="titlebar">
+    <span class="icon">📐</span>
+    <span class="title">LaTeX 数学符号面板</span>
+    <button class="btn-title" onclick="togglePin()" title="置顶/取消置顶" id="btn-pin">📌</button>
+    <button class="btn-title btn-close" onclick="window.close()" title="关闭">✕</button>
+  </div>
+
+  <!-- 输出区域 -->
+  <div id="output-area">
+    <textarea id="output-box" placeholder="直接输入或点击下方符号拼接 LaTeX 表达式…"></textarea>
+    <div id="output-actions">
+      <button class="btn-action" onclick="copyOutput()" title="复制全部">📋</button>
+      <button class="btn-action" onclick="clearOutput()" title="清空">🗑</button>
+    </div>
+  </div>
+
+  <!-- 实时预览 -->
+  <div id="preview-area"></div>
+  <div id="preview-error"></div>
+
+  <!-- 标签栏 -->
+  <div id="tab-bar"></div>
+
+  <!-- 符号面板 -->
+  <div id="symbol-panel"></div>
+
+  <!-- 底部提示 -->
+  <div id="tip-bar">点击符号 → 追加到输出框 · 📋 一键复制</div>
+</div>
+
+<div id="toast">已复制！</div>
+
+<script src="lib/katex/katex.min.js"></script>
+<script>
+// ============ 符号数据集 ============
+const CATEGORIES = [
+  {
+    id: 'greek',
+    label: '希腊字母',
+    symbols: [
+      { latex: '\\alpha',      display: 'α' },
+      { latex: '\\beta',       display: 'β' },
+      { latex: '\\gamma',      display: 'γ' },
+      { latex: '\\delta',      display: 'δ' },
+      { latex: '\\epsilon',    display: 'ε' },
+      { latex: '\\zeta',       display: 'ζ' },
+      { latex: '\\eta',        display: 'η' },
+      { latex: '\\theta',      display: 'θ' },
+      { latex: '\\lambda',     display: 'λ' },
+      { latex: '\\mu',         display: 'μ' },
+      { latex: '\\nu',         display: 'ν' },
+      { latex: '\\xi',         display: 'ξ' },
+      { latex: '\\pi',         display: 'π' },
+      { latex: '\\rho',        display: 'ρ' },
+      { latex: '\\sigma',      display: 'σ' },
+      { latex: '\\tau',        display: 'τ' },
+      { latex: '\\phi',        display: 'φ' },
+      { latex: '\\omega',      display: 'ω' },
+      { latex: '\\Gamma',      display: 'Γ' },
+      { latex: '\\Delta',      display: 'Δ' },
+      { latex: '\\Theta',      display: 'Θ' },
+      { latex: '\\Lambda',     display: 'Λ' },
+      { latex: '\\Pi',         display: 'Π' },
+      { latex: '\\Sigma',      display: 'Σ' },
+      { latex: '\\Phi',        display: 'Φ' },
+      { latex: '\\Psi',        display: 'Ψ' },
+      { latex: '\\Omega',      display: 'Ω' },
+      { latex: '\\infty',      display: '∞' },
+    ]
+  },
+  {
+    id: 'calculus',
+    label: '微积分',
+    symbols: [
+      { latex: '\\int',        display: '∫' },
+      { latex: '\\iint',       display: '∬' },
+      { latex: '\\oint',       display: '∮' },
+      { latex: '\\partial',    display: '∂' },
+      { latex: '\\nabla',      display: '∇' },
+      { latex: '\\lim_{',      display: 'lim' },
+      { latex: '\\to',         display: '→' },
+      { latex: '\\sum_{',      display: 'Σ' },
+      { latex: '\\prod_{',     display: '∏' },
+      { latex: '\\frac{d}{dx}',display: 'd/dx' },
+      { latex: '\\frac{dy}{dx}',display:'dy/dx' },
+      { latex: 'dx',           display: 'dx' },
+      { latex: 'dy',           display: 'dy' },
+      { latex: '\\sin',        display: 'sin' },
+      { latex: '\\cos',        display: 'cos' },
+      { latex: '\\tan',        display: 'tan' },
+      { latex: '\\cot',        display: 'cot' },
+      { latex: '\\sec',        display: 'sec' },
+      { latex: '\\csc',        display: 'csc' },
+      { latex: '\\arcsin',     display: 'arcsin' },
+      { latex: '\\arccos',     display: 'arccos' },
+      { latex: '\\arctan',     display: 'arctan' },
+      { latex: '\\ln',         display: 'ln' },
+      { latex: '\\log',        display: 'log' },
+      { latex: '\\exp',        display: 'exp' },
+      { latex: '\\sinh',       display: 'sinh' },
+      { latex: '\\cosh',       display: 'cosh' },
+    ]
+  },
+  {
+    id: 'operator',
+    label: '运算符',
+    symbols: [
+      { latex: '+',            display: '+' },
+      { latex: '-',            display: '−' },
+      { latex: '\\times',      display: '×' },
+      { latex: '\\div',        display: '÷' },
+      { latex: '\\pm',         display: '±' },
+      { latex: '\\mp',         display: '∓' },
+      { latex: '\\cdot',       display: '·' },
+      { latex: '=',            display: '=' },
+      { latex: '\\neq',        display: '≠' },
+      { latex: '\\approx',     display: '≈' },
+      { latex: '\\equiv',      display: '≡' },
+      { latex: '\\leq',        display: '≤' },
+      { latex: '\\geq',        display: '≥' },
+      { latex: '<',            display: '<' },
+      { latex: '>',            display: '>' },
+      { latex: '\\ll',         display: '≪' },
+      { latex: '\\gg',         display: '≫' },
+      { latex: '\\propto',     display: '∝' },
+      { latex: '\\sim',        display: '∼' },
+    ]
+  },
+  {
+    id: 'setlogic',
+    label: '集合逻辑',
+    symbols: [
+      { latex: '\\in',         display: '∈' },
+      { latex: '\\notin',      display: '∉' },
+      { latex: '\\subset',     display: '⊂' },
+      { latex: '\\subseteq',   display: '⊆' },
+      { latex: '\\supset',     display: '⊃' },
+      { latex: '\\cup',        display: '∪' },
+      { latex: '\\cap',        display: '∩' },
+      { latex: '\\forall',     display: '∀' },
+      { latex: '\\exists',     display: '∃' },
+      { latex: '\\emptyset',   display: '∅' },
+      { latex: '\\land',       display: '∧' },
+      { latex: '\\lor',        display: '∨' },
+      { latex: '\\neg',        display: '¬' },
+      { latex: '\\implies',    display: '⇒' },
+      { latex: '\\iff',        display: '⇔' },
+      { latex: '\\mathbb{R}',  display: 'ℝ' },
+      { latex: '\\mathbb{N}',  display: 'ℕ' },
+      { latex: '\\mathbb{Z}',  display: 'ℤ' },
+      { latex: '\\mathbb{Q}',  display: 'ℚ' },
+    ]
+  },
+  {
+    id: 'bracket',
+    label: '括号',
+    symbols: [
+      { latex: '(',            display: '(' },
+      { latex: ')',            display: ')' },
+      { latex: '[',            display: '[' },
+      { latex: ']',            display: ']' },
+      { latex: '\\{',          display: '{' },
+      { latex: '\\}',          display: '}' },
+      { latex: '\\langle',     display: '⟨' },
+      { latex: '\\rangle',     display: '⟩' },
+      { latex: '|',            display: '|x|' },
+      { latex: '\\lVert',      display: '‖' },
+      { latex: '\\rVert',      display: '‖' },
+      { latex: '\\left(',      display: '(...' },
+      { latex: '\\right)',     display: '...)' },
+      { latex: '\\left[',      display: '[...' },
+      { latex: '\\right]',     display: '...]' },
+      { latex: '\\lfloor',     display: '⌊' },
+      { latex: '\\rfloor',     display: '⌋' },
+      { latex: '\\lceil',      display: '⌈' },
+      { latex: '\\rceil',      display: '⌉' },
+    ]
+  },
+  {
+    id: 'supsub',
+    label: '上标下标',
+    symbols: [
+      { latex: '^2',           display: '²' },
+      { latex: '^3',           display: '³' },
+      { latex: '^4',           display: '⁴' },
+      { latex: '^5',           display: '⁵' },
+      { latex: '^n',           display: 'ⁿ' },
+      { latex: '^{',           display: '^{...}' },
+      { latex: '_0',           display: '₀' },
+      { latex: '_1',           display: '₁' },
+      { latex: '_2',           display: '₂' },
+      { latex: '_3',           display: '₃' },
+      { latex: '_n',           display: 'ₙ' },
+      { latex: '_{',           display: '_{...}' },
+      { latex: 'e^{',          display: 'e^{...}' },
+      { latex: 'x^{',          display: 'x^{...}' },
+      { latex: '\\sqrt{',      display: '√(...)' },
+      { latex: '\\sqrt[3]{',   display: '∛(...)' },
+      { latex: '\\sqrt[n]{',   display: 'ⁿ√(...)' },
+    ]
+  },
+  {
+    id: 'template',
+    label: '常用模板',
+    template: true,
+    symbols: [
+      { latex: '\\ln |x| + C',           display: 'ln|x|+C' },
+      { latex: '\\arctan x + C',          display: 'arctanx+C' },
+      { latex: '\\arcsin x + C',          display: 'arcsinx+C' },
+      { latex: 'e^x + C',                 display: 'eˣ+C' },
+      { latex: '\\frac{1}{x} + C',        display: '1/x+C' },
+      { latex: '\\frac{1}{1+x^2}',        display: '1/(1+x²)' },
+      { latex: '\\frac{1}{\\sqrt{1-x^2}}',display:'1/√(1-x²)' },
+      { latex: '\\sin x + C',             display: 'sinx+C' },
+      { latex: '\\cos x + C',             display: 'cosx+C' },
+      { latex: '-\\cos x + C',            display: '-cosx+C' },
+      { latex: '\\lim_{x \\to 0}',        display: 'lim(x→0)' },
+      { latex: '\\lim_{x \\to \\infty}',  display: 'lim(x→∞)' },
+      { latex: '\\sum_{i=1}^{n}',         display: 'Σ(i=1→n)' },
+      { latex: '\\int_{a}^{b}',           display: '∫ₐᵇ' },
+      { latex: '\\int_{0}^{\\infty}',     display: '∫₀^∞' },
+      { latex: '\\frac{d}{dx}',           display: 'd/dx' },
+      { latex: '\\frac{\\partial}{\\partial x}', display:'∂/∂x' },
+    ]
+  }
+];
+
+// ============ 状态 ============
+let currentTab = 'greek';
+const $output = document.getElementById('output-box');
+const $tabBar = document.getElementById('tab-bar');
+const $panel = document.getElementById('symbol-panel');
+const $toast = document.getElementById('toast');
+
+// ============ 初始化 ============
+function init() {
+  renderTabs();
+  renderPanel(currentTab);
+}
+
+function renderTabs() {
+  $tabBar.innerHTML = CATEGORIES.map(c => 
+    `<button class="tab-btn${c.id === currentTab ? ' active' : ''}" data-tab="${c.id}">${c.label}</button>`
+  ).join('');
+  
+  $tabBar.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentTab = btn.dataset.tab;
+      renderTabs();
+      renderPanel(currentTab);
+    });
+  });
+}
+
+function renderPanel(tabId) {
+  const cat = CATEGORIES.find(c => c.id === tabId);
+  if (!cat) return;
+  
+  $panel.innerHTML = cat.symbols.map(s =>
+    `<button class="sym-btn${cat.template ? ' template-btn' : ''}" data-latex="${escapeHtml(s.latex)}">${s.display}</button>`
+  ).join('');
+  
+  $panel.querySelectorAll('.sym-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      insertLatex(btn.dataset.latex);
+    });
+  });
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ============ 实时 LaTeX 渲染预览 ============
+const $preview = document.getElementById('preview-area');
+const $previewError = document.getElementById('preview-error');
+let previewTimer = null;
+
+function updatePreview() {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(() => {
+    const text = $output.value.trim();
+    if (!text) { $preview.innerHTML = ''; $previewError.textContent = ''; return; }
+    try {
+      let displayMode = false;
+      let toRender = text;
+      // 处理 $...$ 块级公式
+      if (text.startsWith('$') && text.endsWith('$')) {
+        displayMode = true;
+        toRender = text.slice(2, -2);
+      }
+      const html = katex.renderToString(toRender, { displayMode, throwOnError: false, strict: false });
+      $preview.innerHTML = html;
+      $previewError.textContent = '';
+    } catch(e) {
+      // 出错时尝试只渲染第一行
+      try {
+        const firstLine = text.split('\n')[0].trim();
+        if (firstLine && firstLine !== text) {
+          const html = katex.renderToString(firstLine, { displayMode: false, throwOnError: false });
+          $preview.innerHTML = html;
+          $previewError.textContent = '⚠️ 仅渲染了第一行，完整表达式有错误';
+          return;
+        }
+      } catch(e2) {}
+      $preview.innerHTML = '';
+      $previewError.textContent = '⚠️ 无法解析：' + (e.message || '语法错误');
+    }
+  }, 150);
+}
+
+// ============ 输出操作 ============
+function insertLatex(text) {
+  const start = $output.selectionStart;
+  const end = $output.selectionEnd;
+  const val = $output.value;
+  $output.value = val.slice(0, start) + text + val.slice(end);
+  // 移动光标到插入内容之后
+  const newPos = start + text.length;
+  $output.setSelectionRange(newPos, newPos);
+  $output.focus();
+  $output.scrollTop = $output.scrollHeight;
+  // 小小动画
+  $output.style.borderColor = '#4fc3f7';
+  setTimeout(() => { $output.style.borderColor = '#1a3a5c'; }, 200);
+  updatePreview();
+}
+
+function clearOutput() {
+  $output.value = '';
+  $output.focus();
+}
+
+async function copyOutput() {
+  const text = $output.value.trim();
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('已复制！');
+    const copyBtn = document.querySelector('.btn-action');
+    copyBtn.classList.add('copy-ok');
+    setTimeout(() => copyBtn.classList.remove('copy-ok'), 800);
+  } catch {
+    // fallback
+    $output.select();
+    document.execCommand('copy');
+    showToast('已复制！');
+  }
+}
+
+function showToast(msg) {
+  $toast.textContent = msg;
+  $toast.classList.add('show');
+  clearTimeout($toast._timeout);
+  $toast._timeout = setTimeout(() => $toast.classList.remove('show'), 1500);
+}
+
+// ============ 置顶 ============
+let pinned = false;
+function togglePin() {
+  pinned = !pinned;
+  const btn = document.getElementById('btn-pin');
+  btn.style.color = pinned ? '#ffd54f' : '#aaa';
+  showToast(pinned ? '已置顶（请注意窗口焦点）' : '已取消置顶');
+  // 浏览器层面无法真正置顶，但给用户视觉提示
+}
+
+// ============ 拖拽 ============
+let dragState = null;
+const $titlebar = document.getElementById('titlebar');
+$titlebar.addEventListener('mousedown', (e) => {
+  if (e.target.tagName === 'BUTTON') return;
+  dragState = { startX: e.clientX, startY: e.clientY };
+});
+document.addEventListener('mousemove', (e) => {
+  if (!dragState) return;
+  const dx = e.clientX - dragState.startX;
+  const dy = e.clientY - dragState.startY;
+  window.moveBy(dx, dy);
+  dragState.startX = e.clientX;
+  dragState.startY = e.clientY;
+});
+document.addEventListener('mouseup', () => { dragState = null; });
+
+// ============ 键盘快捷键 ============
+document.addEventListener('keydown', (e) => {
+  // Ctrl+C 复制
+  if (e.ctrlKey && e.key === 'c' && document.activeElement !== $output) {
+    copyOutput();
+    e.preventDefault();
+  }
+  // Esc 清空
+  if (e.key === 'Escape') {
+    clearOutput();
+  }
+  // 数字键切换标签
+  const num = parseInt(e.key);
+  if (num >= 1 && num <= CATEGORIES.length) {
+    currentTab = CATEGORIES[num - 1].id;
+    renderTabs();
+    renderPanel(currentTab);
+  }
+});
+
+$output.addEventListener('input', updatePreview);
+
+// ============ 启动 ============
+init();
+</script>
+</body>
+</html>

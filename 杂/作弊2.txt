@@ -1,0 +1,70 @@
+// ========== 课程领域限制 ==========
+
+// 查看当前课程的领域描述
+App.state.textbookCourses.find(c => c.courseName === App.state.selectedCourse)?.domainHint
+
+// 查看所有课程的领域描述（表格）
+console.table(App.state.textbookCourses.map(c => ({ 课程: c.courseName, 领域限制: c.domainHint || '无' })))
+
+// 修改当前课程领域描述
+(() => {
+  const c = App.state.textbookCourses.find(c => c.courseName === App.state.selectedCourse);
+  if (c) { c.domainHint = '你的新描述'; console.log('已更新:', c.domainHint); }
+})()
+
+
+// ========== 萌宠词库 ==========
+
+// 表格查看
+App.showPetWords()
+
+// 原始数组
+App.state.pet.learnedWords
+// 结构: [{word, definition, learnedAt, eggId}, ...]
+
+// 添加词汇
+App.state.pet.learnedWords.push({
+  word: '极限',
+  definition: '函数值无限趋近于某个确定值的状态',
+  learnedAt: '第3章 函数的极值与最大值最小值 — 2026-06-16',
+  eggId: ''
+})
+
+// 删除词汇（按词名）
+App.state.pet.learnedWords = App.state.pet.learnedWords.filter(w => w.word !== '极限')
+
+// 清空全部
+App.state.pet.learnedWords = []
+
+// 按定义关键词搜索
+App.state.pet.learnedWords.filter(w => w.definition.includes('趋近'))
+
+
+
+// 查看所有老师的记忆
+App.state.teacherNotes
+
+// 查看某位老师的记忆
+App.state.teacherNotes.gregor
+
+// 查看 localStorage 持久化
+LS.get('teacher_notes')
+
+// 当前对战题目的答案
+App.state.combat.currentEnemy.answer
+
+// 题目全文
+App.state.combat.currentEnemy.problem
+
+// 整个题池（预生成的所有题目 + 答案）
+App.state.combat.questionPool
+
+// 题池表格形式
+console.table(App.state.combat.questionPool.map(q => ({
+  怪物: q.monsterName,
+  题目: q.problem.substring(0, 50),
+  答案: q.answer
+})))
+
+
+修改上限：找 getMaxSectionChars() 方法，改 2000 即可（行号 ~2552）

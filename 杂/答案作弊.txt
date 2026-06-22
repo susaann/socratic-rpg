@@ -1,0 +1,5 @@
+  在浏览器控制台执行： 
+  App.state.combat.questionPool
+  就能看到所有备选题和对应的答案了。
+  如果你要看当前正在打的这题的答案：
+  App.state.combat.currentEnemy

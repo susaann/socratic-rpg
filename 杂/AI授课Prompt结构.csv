@@ -1,0 +1,36 @@
+﻿顺序,段落名称,内容来源,加载方式,app.js位置,备注
+1,9条重要指令,硬编码在 buildSystemPrompt() return 模板中,代码内嵌,~2841-2850,"身份、教学优先、苏格拉底法、禁止直接给答案、公式格式、卡住处理、推进确认、氛围控制、领域边界"
+2,已激活道具效果,ITEM_EFFECTS 常量 → this.state.activeItem,代码内嵌,app.js 277 / 2851,"橡子/露水/花瓣等教学道具的效果文本"
+3,教材内容,fetchSection(filename),HTTP 读取,app.js 893-908,"从 教材/{课程}/{章节}.md 读取原始 Markdown；多选时合并所有节"
+4,教学要点(4步路线图),硬编码,代码内嵌,~2856-2862,"直觉入门→定义提问→例子验证→综合连接"
+5,苏格拉底教学法核心规则,SEED_DATA.systemMd,代码内嵌,app.js 26-47,"5步流程：提问→判断→纠错→推进→递进；3类禁止行为；例外情况"
+6,系统操作细节,SEED_DATA.systemDetailMd,代码内嵌,app.js 49-72,"回答类型及应对、提问方式禁止清单、格式要求"
+7,教师人设,parseTeacherMd() ← 老师/{id}.md,HTTP 读取,app.js 1008-1093,"姓名、身份、核心性格、人格摘要 组成 personaBrief"
+8,角色对话示例,parseTeacherMd() ← 老师/{id}.md 的 <example_dialogue> 块,HTTP 读取,app.js 1022-1037,"可选，有人设文件提供则注入"
+9,导师记忆,this.state.teacherNotes[teacher.id],localStorage,app.js 2824-2839,"postClassUpdate() AI 生成后写入 LS；最近5条注入；首次上课显示'第一次见面'"
+10,学习者档案,_buildLearnerProfile(knowledgeText),动态生成,app.js 2740-2758,"基本信息硬编码；知识储备从 courseMastery + lessonRecords 实时统计"
+11,世界观,fetchWorldSetting() → system/world_setting.md,HTTP 读取,app.js 910-924,"加载失败回退 SEED_DATA.worldSettingMd (app.js 116)"
+12,进度占位替换,progressSummary / treeStatus / bondStatus,内存读取,app.js 2813-2816,"worldSetting 中 {{PROGRESS_SUMMARY}} {{TREE_STATUS}} {{BOND_STATUS}} 三个占位符被替换"
+,,,,
+,,,,
+调用链,方法,行号,说明,
+入口,startClass(),app.js 2555,"用户点击'开始上课'；检查章节+教师已选；重置 chatHistory；推进游戏时间"
+↓,sendToAI(initUserMsg),app.js 2688,"构建 system prompt + 拼接对话历史 → 调用 DeepSeek API"
+↓,buildSystemPrompt(),app.js 2760,"组装全部 system prompt 的入口方法"
+├,fetchSection(filename),app.js 893,"HTTP GET 教材 .md 文件"
+├,fetchWorldSetting(),app.js 910,"HTTP GET system/world_setting.md"
+├,getCurrentTeacher(),app.js 2544,"从 teachers 数组按 selectedTeacherId 取当前教师"
+└,_buildLearnerProfile(),app.js 2740,"动态生成学习者档案（性格+知识储备）"
+,,
+对话循环,sendMessage(),app.js 2836,"用户输入 → 追加到 chatHistory → 调用 sendToAI(null)"
+结束,endClass(),app.js 2886,"停止上课 → 更新 RPG 树+羁绊 → postClassUpdate() → 归档"
+课后总结,postClassUpdate(),app.js 2924,"一次 API 调用返回 JSON：summary+diary+wechat+teacherNote+participantNotes"
+,,,,
+,,,,
+外部文件清单,文件路径,用途,,
+教材,教材/{课程名}/第N章_N.N_{标题}.md,课程内容；支持多级分节 1.1.1,,
+世界观,system/world_setting.md,RPG 氛围；含三个占位符,,
+教师人设,老师/{id}.md,6个教师完整人设 Markdown,,
+教师显示,老师/roster.json,教师的显示名/身份/颜色/角色等级,,
+萌宠提示词,system/feynman_pet_prompt.md,反转课堂萌宠人设,,
+作业提示词,system/homework_prompt.md,作业批改模板,,

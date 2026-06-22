@@ -1,0 +1,32 @@
+# 备份文件
+*.bak
+*.bak_*
+*.bak2_*
+backup/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# 临时脚本
+_fix_*.js
+batch_gen.py
+
+# IDE / 工具
+.claude/
+.vscode/
+.idea/
+
+# 教案（运行时生成）
+教案/
+
+# 系统文件（已内嵌到 app.js，不需要单独上传）
+# teacher/ 目录是种子数据，SEED_DATA 已包含
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 依赖
+node_modules/

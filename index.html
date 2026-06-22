@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>视界探索者教团 — 苏格拉底教学 RPG</title>
+<link rel="stylesheet" href="lib/katex/katex.min.css">
+<link rel="stylesheet" href="lib/selectionmenu.css">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="fonts/custom-font.css">
+</head>
+<body>
+
+<!-- 欢迎/初始化页面 — 卡片式向导 -->
+<div id="welcome-screen" class="welcome-screen">
+  <div class="welcome-container">
+    <div class="wizard-header">
+      <div class="welcome-icon">🏛️</div>
+      <h1>视界探索者教团</h1>
+      <p class="welcome-desc">苏格拉底式教学 RPG</p>
+    </div>
+    <div class="wizard-card" id="wizard-card">
+      <!-- 卡片 1 -->
+      <div class="wizard-panel active" id="wiz-1">
+        <div class="wiz-num">01</div>
+        <h2>唤醒导师</h2>
+        <p>输入 DeepSeek API Key，召唤教团的六位导师</p>
+        <div class="input-group">
+          <input type="password" id="api-key-input" placeholder="sk-..." autocomplete="off" onkeydown="if(event.key==='Enter')App.saveApiKeyAndNext()">
+        </div>
+        <p class="hint">Key 仅存储在本地浏览器，不会上传到任何服务器</p>
+        <button class="btn btn-primary wiz-btn" id="btn-wiz-1" onclick="App.saveApiKeyAndNext()">继续 →</button>
+      </div>
+      <!-- 卡片 2 -->
+      <div class="wizard-panel" id="wiz-2">
+        <div class="wiz-num">02</div>
+        <h2>加载典籍</h2>
+        <p>从 <code>教材/</code> 和 <code>老师/</code> 目录扫描课程与导师</p>
+        <button class="btn btn-primary wiz-btn" id="btn-wiz-2" onclick="App.loadResourcesAndNext()">加载并继续 →</button>
+        <div id="load-status" class="load-status"></div>
+      </div>
+      <!-- 卡片 3 -->
+      <div class="wizard-panel" id="wiz-3">
+        <div class="wiz-num">03</div>
+        <h2>踏入小镇</h2>
+        <p>一切就绪。伊庇斯特梅小镇的钟声正在响起。</p>
+        <button class="btn btn-primary wiz-btn" onclick="App.enterMain()">🏛️ 进入教团</button>
+      </div>
+    </div>
+    <!-- 进度指示器 -->
+    <div class="wizard-dots">
+      <span class="wiz-dot active" data-step="1"></span>
+      <span class="wiz-dot" data-step="2"></span>
+      <span class="wiz-dot" data-step="3"></span>
+    </div>
+    <p class="welcome-footer">"真正的知识不是教条，而是通过不断追问来拓展认知的边界。"</p>
+  </div>
+</div>
+
+<!-- 主界面 -->
+<div id="main-screen" class="main-screen hidden">
+  <!-- 侧边栏 -->
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <span style="font-size:18px">🏛️</span>
+        <span>视界探索者</span>
+      </div>
+      <button class="btn-icon sidebar-toggle" onclick="App.toggleSidebar()" title="折叠侧边栏">☰</button>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-section-title">📚 知识典籍 · 课程大纲</div>
+        <select id="course-select" class="course-select" onchange="App.switchCourse(this.value)" style="display:none"></select>
+        <div id="outline-tree" class="outline-tree"></div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">👩‍🏫 教团导师</div>
+        <div id="teacher-select" class="teacher-select"></div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">🌳 三树状态</div>
+        <div id="trees-panel" class="trees-panel"></div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">📊 探索进度</div>
+        <div id="stats-panel" class="stats-panel"></div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">🎒 背包</div>
+        <div id="items-panel" class="items-panel"></div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">⚔️ 答题斗技场</div>
+        <div id="battle-status" class="battle-status"></div>
+      </div>
+      <div class="nav-section nav-shortcuts">
+        <div class="nav-section-title">快捷入口</div>
+        <button class="nav-btn" onclick="App.switchView('battle')">
+          <span>⚔️</span> 斗技场
+        </button>
+        <button class="nav-btn" onclick="App.switchView('wechat')">
+          <span>💬</span> 教团群聊
+          <span class="badge" id="wechat-badge" style="display:none">●</span>
+        </button>
+        <button class="nav-btn" onclick="App.switchView('diary')">
+          <span>📓</span> 探索日志
+        </button>
+        <button class="nav-btn" onclick="App.switchView('exercise')">
+          <span>✏️</span> 作业问答
+        </button>
+        <button class="nav-btn" onclick="App.switchView('pet')">
+          <span>🐣</span> 费曼萌宠
+          <span class="badge" id="pet-badge" style="display:none">●</span>
+        </button>
+        <button class="nav-btn" onclick="App.switchView('history')">
+          <span>📂</span> 会话归档
+        </button>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <a class="btn btn-sm btn-outline" href="教材阅读器.html" target="_blank" style="text-decoration:none;display:inline-block;text-align:center">📖 教材阅读</a>
+      <a class="btn btn-sm btn-outline" href="数学符号面板.html" target="_blank" style="text-decoration:none;display:inline-block;text-align:center">📐 符号面板</a>
+      <button class="btn btn-sm btn-outline" onclick="App.backupAllData()">💾 备份存档</button>
+      <button class="btn btn-sm btn-outline" onclick="App.restoreAllData()">📥 恢复存档</button>
+      <button class="btn-icon" onclick="App.toggleTheme()" title="切换主题" id="theme-toggle">🌙</button>
+    </div>
+  </aside>
+
+  <!-- 主内容区 -->
+  <main class="main-content">
+    <!-- 手机端汉堡菜单按钮 -->
+    <button class="mobile-menu-btn" onclick="App.toggleSidebar()" title="菜单">☰</button>
+    <!-- 对话视图 -->
+    <div id="view-chat" class="view active">
+      <div class="chat-header">
+        <div class="chat-header-info">
+          <div class="chat-header-avatar" id="chat-avatar"></div>
+          <div class="chat-header-text">
+            <div class="chat-header-name" id="chat-teacher-name">选择导师</div>
+            <div class="chat-header-topic" id="chat-topic">选择章节开始学习</div>
+          </div>
+        </div>
+        <div class="chat-header-actions">
+          <button class="btn btn-sm btn-outline" id="btn-end-class" onclick="App.endClass()" disabled>结束课程</button>
+        </div>
+      </div>
+      <div class="chat-empty" id="chat-empty">
+        <div id="chat-empty-content">
+          <div class="chat-empty-icon">📖</div>
+          <p>在左侧选择课程章节和授课导师，然后点击"开始上课"</p>
+          <p class="hint">导师将用苏格拉底法引导你——每次只提一个问题，引导你自行发现答案</p>
+        </div>
+        <button class="btn btn-primary" id="btn-start-class" onclick="App.startClass()" disabled>开始上课</button>
+      </div>
+      <div class="chat-messages" id="chat-messages"></div>
+      <div class="chat-typing" id="chat-typing" style="display:none">
+        <div class="typing-dots"><span></span><span></span><span></span></div>
+        <span>对方正在思考…</span>
+      </div>
+      <div class="chat-input-area" id="chat-input-area" style="display:none">
+        <div class="chat-input-row">
+          <textarea id="chat-input" placeholder="输入你的回答..." rows="1" onkeydown="App.handleInputKey(event)"></textarea>
+          <button class="btn btn-sm btn-outline btn-stuck" id="btn-stuck" onclick="App.sendStuck()" title="消耗1枚💡灵感硬币求助">我卡住了 💡0</button>
+          <button class="btn btn-primary btn-send" onclick="App.sendMessage()">发送</button>
+        </div>
+        <div class="chat-input-hint"></div>
+      </div>
+    </div>
+
+    <!-- 作业问答视图 -->
+    <div id="view-exercise" class="view">
+      <div class="view-header">
+        <h2>✏️ 作业问答</h2>
+        <button class="btn btn-sm btn-outline" id="btn-end-homework" onclick="App.endHomework()" disabled>结束批改</button>
+      </div>
+      <!-- 作业设置面板 -->
+      <div class="homework-setup" id="homework-setup">
+        <div class="homework-setup-row">
+          <div class="form-group" style="flex:1">
+            <label>选择导师</label>
+            <select id="hw-teacher-select"></select>
+          </div>
+          <div class="form-group" style="flex:2">
+            <label>作业来源</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <select id="hw-file-select" style="flex:1"><option value="">— 选择作业文件 —</option></select>
+              <span style="color:var(--text-secondary);font-size:12px">或</span>
+              <button class="btn btn-sm btn-outline" onclick="App.toggleHomeworkPaste()">📋 粘贴作业</button>
+            </div>
+          </div>
+        </div>
+        <div class="homework-paste-area" id="homework-paste-area" style="display:none">
+          <textarea id="hw-paste-input" rows="6" placeholder="在此粘贴作业题目...&#10;&#10;格式示例：&#10;## 题目 1&#10;计算下列极限：&#10;$$\lim_{x\to 0}\frac{\sin x}{x}$$&#10;&#10;## 题目 2&#10;求 $y=x^2$ 的导数"></textarea>
+        </div>
+        <button class="btn btn-primary" id="btn-start-homework" onclick="App.startHomework()">开始问答</button>
+        <p class="hint" style="margin-top:8px">选择一位导师和作业内容，老师将逐题问你答案，用苏格拉底法引导你</p>
+      </div>
+      <!-- 作业对话区 -->
+      <div class="homework-chat" id="homework-chat" style="display:none">
+        <div class="chat-messages" id="hw-messages"></div>
+        <div class="chat-typing" id="hw-typing" style="display:none">
+          <div class="typing-dots"><span></span><span></span><span></span></div>
+          <span>对方正在思考…</span>
+        </div>
+        <div class="chat-input-area" id="hw-input-area">
+          <div class="chat-input-row">
+            <textarea id="hw-chat-input" placeholder="输入你的回答..." rows="1" onkeydown="App.handleHomeworkInputKey(event)"></textarea>
+            <button class="btn btn-sm btn-outline btn-stuck" onclick="App.sendHomeworkStuck()" title="卡住了？">我卡住了</button>
+            <button class="btn btn-primary btn-send" onclick="App.sendHomeworkMessage()">发送</button>
+          </div>
+          <div class="chat-input-hint">老师每次只问一道题。卡住时可点"我卡住了"。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 教团群聊视图 -->
+    <div id="view-wechat" class="view">
+      <div class="view-header">
+        <h2>💬 教团群聊</h2>
+        <button class="btn btn-sm btn-outline" onclick="App.switchView('chat')">← 返回对话</button>
+      </div>
+      <div class="wechat-container">
+        <div class="wechat-messages" id="wechat-messages"></div>
+        <div class="wechat-notice" id="wechat-notice">— 群聊消息由导师们在课后自动生成 —</div>
+      </div>
+    </div>
+
+    <!-- 探索日志视图 -->
+    <div id="view-diary" class="view">
+      <div class="view-header">
+        <h2>📓 探索日志</h2>
+        <button class="btn btn-sm btn-outline" onclick="App.switchView('chat')">← 返回对话</button>
+      </div>
+      <div class="diary-container">
+        <div class="diary-new">
+          <textarea id="diary-input" rows="3" placeholder="写一篇探索日志...（导师也会在课后自动生成）"></textarea>
+          <button class="btn btn-sm btn-primary" onclick="App.addDiary()">发布日志</button>
+        </div>
+        <div id="diary-list"></div>
+      </div>
+    </div>
+
+    <!-- 会话归档视图 -->
+    <div id="view-history" class="view">
+      <div class="view-header">
+        <h2>📂 会话归档</h2>
+        <button class="btn btn-sm btn-outline" onclick="App.switchView('chat')">← 返回对话</button>
+      </div>
+      <div class="history-layout">
+        <div class="history-list-panel" id="history-list-panel">
+          <div id="history-list"></div>
+        </div>
+        <div class="history-detail-panel" id="history-detail-panel">
+          <div class="history-detail-empty" id="history-detail-empty">
+            <div style="font-size:40px;margin-bottom:12px">📂</div>
+            <p>选择左侧的对话记录查看详情</p>
+          </div>
+          <div id="history-detail-content" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 费曼萌宠视图 -->
+    <div id="view-pet" class="view">
+      <div class="view-header">
+        <h2>🐣 费曼的萌宠</h2>
+        <button class="btn btn-sm btn-outline" onclick="App.switchView('chat')">← 返回对话</button>
+      </div>
+      <!-- 未解锁：蛋的状态 -->
+      <div class="pet-egg-stage" id="pet-egg-stage">
+        <div class="pet-egg-container">
+          <div class="pet-egg-icon">🥚</div>
+          <h3>一颗神秘的蛋</h3>
+          <p class="pet-egg-desc">它在教团庭院的知识之树下散发着微光……<br>继续学习课程，这颗蛋会吸收知识的力量破壳而出。</p>
+          <div class="pet-egg-progress">
+            <div class="pet-egg-progress-bar">
+              <div class="pet-egg-progress-fill" id="pet-egg-progress-fill"></div>
+            </div>
+            <span id="pet-egg-progress-text">已学 0/3 节课</span>
+          </div>
+        </div>
+      </div>
+      <!-- 破壳仪式 -->
+      <div class="pet-hatch-ceremony" id="pet-hatch-ceremony" style="display:none">
+        <div class="pet-hatch-container">
+          <div class="pet-hatch-icon">🐣</div>
+          <h3>蛋裂开了！</h3>
+          <p>一只小生灵从蛋壳中探出头来，用好奇的眼神看着你。<br>给它取个名字，选择它的样子和性格吧。</p>
+          <div class="pet-hatch-form">
+            <div class="form-group">
+              <label>给萌宠取名</label>
+              <input type="text" id="pet-name-input" placeholder="输入名字…" maxlength="12">
+            </div>
+            <div class="form-group">
+              <label>选择外表</label>
+              <div class="pet-option-row" id="pet-appearance-options"></div>
+            </div>
+            <div class="form-group">
+              <label>选择性格</label>
+              <div class="pet-option-row" id="pet-personality-options"></div>
+            </div>
+            <button class="btn btn-primary" onclick="App.hatchPet()">🎉 完成破壳仪式</button>
+          </div>
+        </div>
+      </div>
+      <!-- 已领养：萌宠主界面 -->
+      <div class="pet-main-stage" id="pet-main-stage" style="display:none">
+        <div class="pet-profile-bar">
+          <div class="pet-profile-avatar" id="pet-profile-avatar"></div>
+          <div class="pet-profile-info">
+            <div class="pet-profile-name" id="pet-profile-name"></div>
+            <div class="pet-profile-meta">
+              <span id="pet-profile-level"></span> ·
+              <span id="pet-profile-stage"></span> ·
+              🥚 金蛋 <span id="pet-profile-eggs">0</span>
+            </div>
+          </div>
+          <div class="pet-profile-actions">
+            <button class="btn btn-primary" id="btn-start-teaching" onclick="App.startPetTeaching()">🎓 开始授课</button>
+          </div>
+        </div>
+        <div class="pet-content">
+          <!-- 授课对话区 -->
+          <div class="pet-teaching-chat" id="pet-teaching-chat" style="display:none">
+            <div class="chat-messages" id="pet-messages"></div>
+            <div class="chat-typing" id="pet-typing" style="display:none">
+              <div class="typing-dots"><span></span><span></span><span></span></div>
+              <span id="pet-typing-text">萌宠正在思考…</span>
+            </div>
+            <div class="chat-input-area" id="pet-input-area">
+              <div class="chat-input-row">
+                <textarea id="pet-chat-input" placeholder="给萌宠讲解..." rows="1" onkeydown="App.handlePetInputKey(event)"></textarea>
+                <button class="btn btn-sm btn-outline btn-stuck" onclick="App.petAskHint()" title="让萌宠给提示">💡</button>
+                <button class="btn btn-primary btn-send" onclick="App.sendPetMessage()">发送</button>
+              </div>
+              <div class="chat-input-hint">你现在是老师，把知识讲给萌宠听。讲清楚才算真懂！</div>
+            </div>
+            <div style="padding:8px 20px;text-align:center">
+              <button class="btn btn-sm btn-warning" onclick="App.endPetTeaching()">📝 下课并生成金蛋</button>
+            </div>
+          </div>
+          <!-- 非授课：金蛋收集 + 成长时间线 -->
+          <div class="pet-idle-panels" id="pet-idle-panels">
+            <div class="pet-panel">
+              <h3>📖 已学会词汇</h3>
+              <p class="hint">萌宠学会的专业词汇（词汇级别）。只有学会的词才能听懂，陌生词会自动打断。</p>
+              <div id="pet-learned-words-panel"></div>
+            </div>
+            <div class="pet-panel">
+              <h3>🥚 知识金蛋</h3>
+              <p class="hint">每次授课结束后，苏格拉底会点评你的教学并提炼知识点成为金蛋。金蛋积累越多，萌宠成长越快。</p>
+              <div class="pet-eggs-grid" id="pet-eggs-grid"></div>
+            </div>
+            <div class="pet-panel">
+              <h3>🌱 成长之路</h3>
+              <div class="pet-growth-timeline" id="pet-growth-timeline"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- 答题斗技场视图 -->
+    <div id="view-battle" class="view">
+      <div class="view-header">
+        <h2>⚔️ 答题斗技场</h2>
+        <button class="btn btn-sm btn-outline" onclick="App.switchView('chat')">← 返回对话</button>
+      </div>
+      <div class="battle-layout" id="battle-layout">
+        <!-- 由 renderBattleView() 填充 -->
+      </div>
+    </div>
+  </main>
+</div>
+
+<input type="file" id="restore-file-input" accept=".json" style="display:none" onchange="App.handleRestoreFile(event)">
+
+<!-- Toast 通知 -->
+<div id="toast-container" style="position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none"></div>
+<!-- 全局加载遮罩 -->
+<div id="loading-overlay" style="display:none;position:fixed;top:0;left:280px;right:0;bottom:0;background:rgba(0,0,0,0.15);z-index:100;align-items:center;justify-content:center">
+  <div style="background:var(--bg);padding:20px 32px;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.2);text-align:center;font-size:14px">
+    <div style="font-size:28px;margin-bottom:8px">⏳</div>
+    <div id="loading-text">处理中…</div>
+  </div>
+</div>
+
+<script src="lib/katex/katex.min.js"></script>
+<script src="lib/katex/auto-render.min.js"></script>
+<script src="lib/selectionmenu.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
