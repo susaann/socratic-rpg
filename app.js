@@ -2702,14 +2702,14 @@ ${allProblems}` },
           .filter(r => r.weakConcepts && r.weakConcepts.length > 0)
           .slice(-5).reverse();
         if (hwRecords.length > 0) {
-          html += '<div class="ba-stuck-review" style="margin-top:8px;border-top:1px dashed var(--border);padding-top:8px">' +
+          html += '<div class="ba-hw-records">' +
             '<div class="ba-stuck-label">📋 课后记录薄弱点 · 手动生成习题</div>';
           for (let ri = 0; ri < hwRecords.length; ri++) {
             const r = hwRecords[ri];
             const realIdx = lessonRecs.findIndex(function(lr){ return lr.date === r.date && lr.title === r.title; });
-            html += '<div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0;font-size:11px">' +
-              '<span style="color:var(--text-secondary)">第' + r.chapterNum + '章 ' + (r.title||'') + ' · ' + (r.weakConcepts||[]).length + '个薄弱点</span>' +
-              '<button class="btn btn-sm btn-outline" onclick="App._generateExercisesFromRecord(' + realIdx + ')" style="font-size:10px;padding:2px 8px">生成习题</button>' +
+            html += '<div class="ba-hw-row">' +
+              '<span class="ba-hw-info">第' + r.chapterNum + '章 ' + (r.title||'') + ' · ' + (r.weakConcepts||[]).length + '个薄弱点</span>' +
+              '<button class="btn btn-sm btn-outline ba-hw-btn" onclick="App._generateExercisesFromRecord(' + realIdx + ')">生成习题</button>' +
             '</div>';
           }
           html += '</div>';
@@ -5599,10 +5599,10 @@ ${knowledgeMapRef}
         const hwDomainHint = (hwCourse && hwCourse.domainHint)
           ? hwCourse.domainHint
           : '这是一门课程。所有讨论必须围绕课程主题，不要偏离领域。';
-        systemPrompt += `\n\n=== 重要指令 ===\n1. 你现在就是${teacher.name}，用她的性格、语气、风格说话。\n2. 严格逐题批改，每次只处理一道题。\n3. 不要直接给答案。用反问、反例、提示引导学生自己发现。\n4. 数学公式用 $...$ 或 $$...$$ 格式。\n5. 【领域边界】${hwDomainHint}`;
+        systemPrompt += `\n\n=== 重要指令 ===\n1. 你现在就是${teacher.name}，用她的性格、语气、风格说话。\n2. 严格逐题批改，每次只处理一道题。\n3. 不要直接给答案。用反问、反例、提示引导学生自己发现。\n4. ⚠️ 数学公式必须用 $...$ 或 $$...$$ 格式，严禁使用 \\(...\\) 或 \\[...\\]。\n5. 【领域边界】${hwDomainHint}`;
       } else {
         // Continuation: use minimal context
-        systemPrompt = `你正在逐题批改作业。你是${teacher.name}的苏格拉底式导师。继续逐题处理。前面已处理的题目不要重复。数学公式用 $...$ 或 $$...$$ 格式。`;
+        systemPrompt = `你正在逐题批改作业。你是${teacher.name}的苏格拉底式导师。继续逐题处理。前面已处理的题目不要重复。⚠️ 数学公式用 $...$ 或 $$...$$，严禁 \\(...\\)。`;
       }
 
       const apiMessages = [{ role: 'system', content: systemPrompt }];
