@@ -1228,15 +1228,17 @@ ${sampleContent || '（未加载）'}
   async _loadChapterPlan(courseName, chNum) {
     const cacheKey = 'plan_chapter_' + courseName + '_' + chNum;
     const cached = LS.get(cacheKey, null);
-    if (cached) return cached;
+    // 旧缓存缺 knowledgeMap 视为过期，重新加载
+    if (cached && cached.knowledgeMap && Array.isArray(cached.knowledgeMap) && cached.knowledgeMap.length > 0) return cached;
+    if (cached) console.log('🔄 章概括缓存缺少 knowledgeMap，重新从文件加载');
     try {
       const planPath = this._getChapterPlanPath(courseName, chNum);
       const resp = await fetch(encodeURI(planPath));
-      if (!resp.ok) return null;
+      if (!resp.ok) return cached || null;
       const json = await resp.json();
       LS.set(cacheKey, json);
       return json;
-    } catch (e) { return null; }
+    } catch (e) { return cached || null; }
   },
 
   // 加载单节教案（从 LS 缓存或文件）
@@ -1294,7 +1296,7 @@ ${sampleContent || '（未加载）'}
             { role: 'user', content: userMsg }
           ],
           temperature: 0.3,
-          max_tokens: 4096,
+          max_tokens: 8192,
           response_format: { type: 'json_object' }
         })
       });
@@ -1311,6 +1313,22 @@ ${sampleContent || '（未加载）'}
         parsed = JSON.parse(m ? m[0] : reply);
       } catch (e) {
         throw new Error('章概括 JSON 解析失败：' + e.message);
+      }
+      // 校验 knowledgeMap 必填字段
+      if (!parsed.knowledgeMap || !Array.isArray(parsed.knowledgeMap) || parsed.knowledgeMap.length === 0) {
+        console.warn('⚠️ AI 未生成 knowledgeMap，将用 keyConceptsPreview 自动构建');
+        if (parsed.keyConceptsPreview && Array.isArray(parsed.keyConceptsPreview)) {
+          const kmMap = {};
+          parsed.keyConceptsPreview.forEach(k => {
+            const sec = k.appearsInSection || '?';
+            if (!kmMap[sec]) kmMap[sec] = [];
+            kmMap[sec].push({ name: k.name, status: '⬜', type: k.type || 'definition' });
+          });
+          parsed.knowledgeMap = Object.entries(kmMap).map(([section, points]) => ({ section, points }));
+        } else {
+          // 完全没有——用 sections 生成空壳
+          parsed.knowledgeMap = (parsed.sections || []).map(s => ({ section: s.num, points: [] }));
+        }
       }
       // 落盘：PUT 到服务器文件 + LS 缓存兜底
       const planPath = '教案/' + courseName + '/_第' + chNum + '章_概括.json';
@@ -3396,6 +3414,29 @@ ${allProblems}` },
   // 拼合节包：当前节<1000字且下一节≤5000字时触发，累加直到≥5000字或课程结束
   // 规则：如果下一节本身>5000字则不合并（避免小引子+大章正文拼在一起）
   // 返回 { sections: [...], totalChars: number, filename: string, bundled: bool }
+  // 信息密度分析（纯本地，不调API）：基于前500字判断本节是否"干货充足"
+  _analyzeDensity(text) {
+    const head = text.substring(0, 500);
+    const cn500 = (head.match(/[一-鿿]/g) || []).length;
+    const per100 = Math.max(cn500 / 100, 1);
+    // 公式密度（$...$ 和 $$...$$）
+    const inlineDollars = (head.match(/\$/g) || []).length;
+    const blockDollars = (head.match(/\$\$/g) || []).length;
+    const fm500 = Math.floor(inlineDollars / 2) + Math.floor(blockDollars / 2);
+    // 术语密度（**粗体**、《书名号》、"引号"）
+    const tm500 = (head.match(/\*\*[^*]+\*\*/g) || []).length +
+      (head.match(/《[^》]+》/g) || []).length +
+      (head.match(/"[^"]{2,}"/g) || []).length;
+    // 平均句长
+    const sentences = (head.match(/[。！？.!?]/g) || []).length || 1;
+    const avgSL = Math.round(cn500 / sentences);
+    // 三项评分（0-100）
+    const formulaScore = Math.min((fm500 / per100) * 25, 40);
+    const termScore = Math.min((tm500 / per100) * 20, 30);
+    const sentenceScore = Math.min((avgSL / 40) * 30, 30);
+    return Math.round(formulaScore + termScore + sentenceScore);
+  },
+
   async _buildSectionBundle(courseName, startSection, minChars = 5000) {
     const flat = this._getFlatSectionsForCourse(courseName);
     const startIdx = flat.findIndex(s => s.filename === startSection.filename);
@@ -3407,14 +3448,21 @@ ${allProblems}` },
     if (firstLen >= 3000) {
       return { sections: [{ ...flat[startIdx], charCount: firstLen }], totalChars: firstLen, filename: startSection.filename, bundled: false };
     }
+    // 信息密度判断：高密度（≥50分）+ ≥1500字 → 即使不足3000字也独立
+    const densityScore = this._analyzeDensity(firstContent);
+    if (densityScore >= 50 && firstLen >= 1500) {
+      console.log('📐 密度判断：评分' + densityScore + '（高密度），字数' + firstLen + ' ≥ 1500，不触发拼合');
+      return { sections: [{ ...flat[startIdx], charCount: firstLen, densityScore }], totalChars: firstLen, filename: startSection.filename, bundled: false };
+    }
     // 检查下一节：如果下一节>5000字，不合并
     if (startIdx + 1 < flat.length) {
       const nextContent = await this.fetchSection(flat[startIdx + 1].filename).catch(() => '');
       if (nextContent.length > 5000) {
-        return { sections: [{ ...flat[startIdx], charCount: firstLen }], totalChars: firstLen, filename: startSection.filename, bundled: false };
+        return { sections: [{ ...flat[startIdx], charCount: firstLen, densityScore }], totalChars: firstLen, filename: startSection.filename, bundled: false };
       }
     }
     // 触发拼合：从起始节开始累加，最多3节
+    console.log('📐 密度判断：评分' + densityScore + '，字数' + firstLen + '，触发拼合');
     const bundle = [];
     let total = 0;
     const maxSections = 3;
@@ -4522,11 +4570,21 @@ ${knowledgeText}
       if (primaryS) {
         const kmCourse = this.state.selectedCourse || '';
         const chapterPlan = await this._loadChapterPlan(kmCourse, primaryS.chapterNum);
-        if (chapterPlan && chapterPlan.knowledgeMap) {
-          const secMap = chapterPlan.knowledgeMap.filter(k => k.section === primaryS.num);
-          if (secMap.length > 0) {
+        if (chapterPlan) {
+          // 优先用 knowledgeMap，没有则用 keyConceptsPreview 构建
+          let secPoints = [];
+          if (chapterPlan.knowledgeMap && Array.isArray(chapterPlan.knowledgeMap)) {
+            const secMap = chapterPlan.knowledgeMap.filter(k => k.section === primaryS.num);
+            secPoints = secMap.flatMap(k => k.points);
+          }
+          if (secPoints.length === 0 && chapterPlan.keyConceptsPreview && Array.isArray(chapterPlan.keyConceptsPreview)) {
+            secPoints = chapterPlan.keyConceptsPreview
+              .filter(k => k.appearsInSection === primaryS.num)
+              .map(k => ({ name: k.name, status: '⬜', type: k.type || 'definition' }));
+          }
+          if (secPoints.length > 0) {
             knowledgeMapRef = '\n=== 本节知识地图（请逐项标记状态）===\n' +
-              JSON.stringify(secMap.flatMap(k => k.points), null, 2) +
+              JSON.stringify(secPoints, null, 2) +
               '\n\n注意：上方知识地图中的每个知识点，你都必须在 knowledgePoints 输出中逐一标记实际教学状态（mastered/weak/not_covered）。知识点名称必须与知识地图中的 name 精确匹配。';
           }
         }
@@ -4577,9 +4635,9 @@ ${knowledgeMapRef}
 
 === 知识点标记规则===
 0. knowledgePoints 是核心输出——你必须逐一遍历本节教材中涉及的每一个关键概念，为每个概念标注掌握状态。knowledgePoints 中的 name 必须与上方知识地图中的 name 精确匹配以支持自动回写。不要只列两三个笼统的大标题，要拆细。
-1. status 取值：mastered（学生能独立推导/准确回答）、weak（学生反复卡住/回答模糊/需要多次提示）、not_covered（课堂时间不足未展开讨论）。
+1. status 取值：mastered（学生能独立推导/准确回答）、weak（学生反复卡住/回答模糊/需要多次提示）、not_covered（课堂时间不足未展开讨论）。⚠️ weak 条目不得少于 3 个——即使学生表现出色，也要从"理解深度""能否举一反三""是否触及本质"等维度找出至少3个需要巩固的点。如果学生的回答看似正确但缺乏深度，应标记为 weak 而非 mastered。
 2. evidence 必须引用学生在对话中的具体表现，不能写空话。"表现好"是不合格的证据；"学生独立推导了克氏循环的正向产能逻辑，准确区分了正向与逆向的ATP角色"是合格的证据。
-3. weakPoints 从 knowledgePoints 中 status="weak" 的条目提取。
+3. weakPoints 从 knowledgePoints 中 status="weak" 的条目提取。必须至少 3 条。
 4. strengths 从 knowledgePoints 中 status="mastered" 的条目提取。
 5. extensionQuestions 应基于本节内容提出更深层的追问，用于学生课后思考。每个问题应有明确指向，不要空洞。
 6. nextLessonHints 必须具体——指出下节课应优先补强的知识点和可以快进的内容，用于驱动教师记忆系统。
@@ -4618,7 +4676,7 @@ ${knowledgeMapRef}
           { role: 'user', content: prompt }
         ],
         temperature: 0.8,
-        max_tokens: 4096,
+        max_tokens: 8192,
         response_format: { type: 'json_object' }
       })
     });
