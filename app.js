@@ -2695,6 +2695,25 @@ ${allProblems}` },
           <div class="ba-stuck-label">📝 错题复习 · 来自教学中的真实卡住点</div>
           ${(this.state.stuckExercises||[]).length>0?'<button class="btn btn-accent ba-stuck-btn" onclick="App._startStuckBattle()">🎯 复习错题（'+this.state.stuckExercises.length+' 道）</button>':'<div style="font-size:11px;color:var(--text-secondary)">暂无错题。上课时AI检测到卡住点后，下课时自动生成。</div>'}
         </div>`;
+
+        // 课后记录薄弱点 → 手动生成习题
+        const lessonRecs = (this.state.progress && this.state.progress.lessonRecords) || [];
+        const hwRecords = lessonRecs
+          .filter(r => r.weakConcepts && r.weakConcepts.length > 0)
+          .slice(-5).reverse();
+        if (hwRecords.length > 0) {
+          html += '<div class="ba-stuck-review" style="margin-top:8px;border-top:1px dashed var(--border);padding-top:8px">' +
+            '<div class="ba-stuck-label">📋 课后记录薄弱点 · 手动生成习题</div>';
+          for (let ri = 0; ri < hwRecords.length; ri++) {
+            const r = hwRecords[ri];
+            const realIdx = lessonRecs.findIndex(function(lr){ return lr.date === r.date && lr.title === r.title; });
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0;font-size:11px">' +
+              '<span style="color:var(--text-secondary)">第' + r.chapterNum + '章 ' + (r.title||'') + ' · ' + (r.weakConcepts||[]).length + '个薄弱点</span>' +
+              '<button class="btn btn-sm btn-outline" onclick="App._generateExercisesFromRecord(' + realIdx + ')" style="font-size:10px;padding:2px 8px">生成习题</button>' +
+            '</div>';
+          }
+          html += '</div>';
+        }
     }
     html += `</div>`;
 
@@ -3734,7 +3753,7 @@ ${allProblems}` },
     await this.sendToAI(null);
   },
 
-  // 课后自动生成错题习题（每卡住知识点1道选择题，累积保存）
+  // 课后自动生成错题习题（卡住点 + 手动标记 + AI分析的薄弱点，每题1道选择题）
   async _generateStuckExercises() {
     const stuckLog = this.state.stuckLog || [];
     // stuckLog 已在 startClass 清空，全部都是本节课的。按知识点去重。
@@ -3747,11 +3766,26 @@ ${allProblems}` },
     });
     // 也收集学生手动标记的消息
     const flagged = this.state.flaggedMessages || [];
-    const totalItems = newStucks.length + flagged.length;
+
+    // 从上节课的 lessonRecord 提取 AI 分析的薄弱点（postClassUpdate 生成的 weakConcepts）
+    const records = (this.state.progress && this.state.progress.lessonRecords) || [];
+    const lastRecord = records[records.length - 1];
+    const weakFromAI = (lastRecord && lastRecord.weakConcepts && Array.isArray(lastRecord.weakConcepts))
+      ? lastRecord.weakConcepts.map(w => ({ knowledgePoint: w, source: 'AI课后分析' }))
+      : [];
+    // 去重：排除已出现在 stuckLog 或 weakFromAI 重复的
+    const weakUnique = weakFromAI.filter(w => {
+      const key = w.knowledgePoint + '|' + (lastRecord.sectionNum || '');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    const totalItems = newStucks.length + flagged.length + weakUnique.length;
     if (!totalItems) return;
 
-    this.addSystemMessage('📝 检测到 ' + newStucks.length + ' 个卡住点 + ' + flagged.length + ' 条标记，正在生成针对性习题…');
-    console.log('📝 _generateStuckExercises: ' + newStucks.length + ' stuck + ' + flagged.length + ' flagged');
+    this.addSystemMessage('📝 检测到 ' + newStucks.length + ' 个卡住点 + ' + flagged.length + ' 条标记 + ' + weakUnique.length + ' 个AI分析薄弱点，正在生成针对性习题…');
+    console.log('📝 _generateStuckExercises: ' + newStucks.length + ' stuck + ' + flagged.length + ' flagged + ' + weakUnique.length + ' weakAI');
 
     // 构建卡住摘要
     const stuckSummary = newStucks.map((s, i) =>
@@ -3764,6 +3798,12 @@ ${allProblems}` },
     const flaggedSummary = flagged.map((f, i) =>
       (i+1) + '. 学生标记的讲解片段：' + f.snippet +
       '\n   完整内容：' + f.content.substring(0, 500)
+    ).join('\n\n');
+    // 构建 AI 薄弱点摘要
+    const weakSummary = weakUnique.map((w, i) =>
+      (i+1) + '. 薄弱点：' + w.knowledgePoint +
+      '\n   来源：' + w.source +
+      '\n   章节：第' + (lastRecord.chapterNum || '?') + '章 ' + (lastRecord.sectionNum || '?') + ' ' + (lastRecord.title || '')
     ).join('\n\n');
 
     // 加载当前教材内容（供 AI 参考出题）
@@ -3778,8 +3818,11 @@ ${allProblems}` },
 
     const prompt = `你是课程"${this.state.selectedCourse || ''}"的习题设计专家。以下学生在学习过程中暴露了若干薄弱点以及手动标记的难点，请为每个条目设计1道选择题。
 
-=== 卡住记录 ===
+=== 卡住记录（上课中途检测） ===
 ${stuckSummary || '（无）'}
+
+=== AI课后分析薄弱点 ===
+${weakSummary || '（无）'}
 
 === 学生手动标记的难点 ===
 ${flaggedSummary || '（无）'}
@@ -3788,7 +3831,7 @@ ${flaggedSummary || '（无）'}
 ${textbookRef || '（无）'}
 
 === 要求 ===
-1. 每个条目生成1道选择题（共${totalItems}道：${newStucks.length}个卡住点 + ${flagged.length}条标记）
+1. 每个条目生成1道选择题（共${totalItems}道：${newStucks.length}个卡住点 + ${weakUnique.length}个薄弱点 + ${flagged.length}条标记）
 2. 每道题4个选项（A/B/C/D），1个正确答案 + 3个干扰项
 3. 干扰项必须基于"错误类型"中描述的学生真实错误思路来设计——让选了错误选项的学生看到解析后能意识到"这就是我当时犯的错"
 4. 题目难度适中，不要太简单也不要太刁钻
@@ -3855,6 +3898,100 @@ ${textbookRef || '（无）'}
     } catch(e) {
       console.error('❌ 错题习题生成失败：', e.message, e.stack);
       this.addSystemMessage('⚠️ 错题习题生成失败：' + e.message);
+    }
+  },
+
+  // 从课后记录手动生成习题：选择某条 lessonRecord，对其 weak + not_covered 概念出题
+  async _generateExercisesFromRecord(index) {
+    const records = (this.state.progress && this.state.progress.lessonRecords) || [];
+    const record = records[index];
+    if (!record) { alert('找不到该条课后记录'); return; }
+    const concepts = [
+      ...(record.weakConcepts || []).map(c => ({ name: c, type: '薄弱点' })),
+      ...(record.notCoveredConcepts || []).map(c => ({ name: c, type: '未覆盖' }))
+    ];
+    if (!concepts.length) { alert('该记录没有薄弱点或未覆盖知识点'); return; }
+
+    this.addSystemMessage('📝 正在为「第' + record.chapterNum + '章 ' + record.title + '」生成 ' + concepts.length + ' 道习题…');
+    const toastEl = this._toast('⏳ 正在生成习题…', 'loading', 0);
+
+    // 构建知识点摘要
+    const conceptSummary = concepts.map((c, i) =>
+      (i + 1) + '. [' + c.type + '] ' + c.name
+    ).join('\n');
+
+    // 尝试加载相关教材内容
+    let textbookRef = '';
+    try {
+      const course = this.state.textbookCourses.find(c => c.courseName === (record.courseName || this.state.selectedCourse));
+      if (course) {
+        const chapter = course.chapters.find(ch => ch.chapterNum === record.chapterNum);
+        if (chapter) {
+          const section = chapter.sections.find(s => s.num === record.sectionNum);
+          if (section) {
+            textbookRef = await this.fetchSection(section.filename).catch(() => '');
+            if (textbookRef.length > 3000) textbookRef = textbookRef.substring(0, 3000);
+          }
+        }
+      }
+    } catch(e) { /* 忽略 */ }
+
+    const prompt = '你是课程习题设计专家。以下知识点来自历史课后记录，学生曾在此暴露薄弱。请为每个知识点设计1道选择题。\n\n' +
+      '=== 知识点列表 ===\n' + conceptSummary + '\n\n' +
+      '=== 教材参考 ===\n' + (textbookRef || '（无）') + '\n\n' +
+      '=== 要求 ===\n' +
+      '1. 每个知识点生成1道选择题（共' + concepts.length + '道）\n' +
+      '2. 每道题4个选项（A/B/C/D），1个正确答案 + 3个干扰项\n' +
+      '3. 干扰项要针对学生可能的错误思路来设计\n' +
+      '4. 用 JSON 格式回复（只输出 JSON）\n\n' +
+      '输出格式：\n' +
+      '{\n' +
+      '  "exercises": [\n' +
+      '    {\n' +
+      '      "knowledgePoint": "知识点名称",\n' +
+      '      "question": "题目正文",\n' +
+      '      "options": ["A. 选项A", "B. 选项B", "C. 选项C", "D. 选项D"],\n' +
+      '      "correctAnswer": "A",\n' +
+      '      "explanation": "正确答案解析（1-2句话）",\n' +
+      '      "trapNotes": {"A": "为什么正确", "B": "对应哪种错误思路", "C": "对应哪种错误思路", "D": "对应哪种错误思路"}\n' +
+      '    }\n' +
+      '  ]\n' +
+      '}';
+
+    try {
+      const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.state.apiKey },
+        body: JSON.stringify({
+          model: MODEL_CONFIG.name,
+          messages: [
+            { role: 'system', content: '你是一个严谨的习题设计专家。请严格按照 JSON 格式输出。' },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.5,
+          max_tokens: 4096,
+          response_format: { type: 'json_object' }
+        })
+      });
+      if (!resp.ok) throw new Error('API 请求失败 (HTTP ' + resp.status + ')');
+      const data = await resp.json();
+      const reply = data.choices[0].message.content;
+      let parsed;
+      try { const m = reply.match(/\{[\s\S]*\}/); parsed = JSON.parse(m ? m[0] : reply); }
+      catch(e) { throw new Error('JSON 解析失败：' + e.message); }
+      const exercises = (parsed.exercises || []).filter(e => e.question && e.options);
+      if (!exercises.length) throw new Error('API 返回的 exercises 为空');
+
+      this.state.stuckExercises = [...(this.state.stuckExercises || []), ...exercises];
+      LS.set('stuck_exercises', this.state.stuckExercises);
+      if (toastEl) toastEl.remove();
+      console.log('✅ 课后记录习题已生成：' + exercises.length + ' 道 → 累积共 ' + this.state.stuckExercises.length + ' 道');
+      this.addSystemMessage('✅ 已为「第' + record.chapterNum + '章 ' + record.title + '」生成 ' + exercises.length + ' 道习题（累积共 ' + this.state.stuckExercises.length + ' 道）');
+      this.renderBattleView();
+    } catch(e) {
+      if (toastEl) toastEl.remove();
+      console.error('记录习题生成失败：', e.message);
+      this.addSystemMessage('⚠️ 习题生成失败：' + e.message);
     }
   },
 
@@ -5343,11 +5480,22 @@ ${knowledgeMapRef}
   },
 
   renderContent(content) {
-    let html = this.escapeHtml(content);
+    // 预转换：把 AI 可能输出的 \(...\) \[...\] 统一成 $...$ $$...$$
+    let text = content
+      .replace(/\\\[([\s\S]*?)\\\]/g, (_, m) => '$$' + m.trim() + '$$')
+      .replace(/\\\(([\s\S]*?)\\\)/g, (_, m) => '$' + m.trim() + '$');
+    let html = this.escapeHtml(text);
+    // 保护 $$...$$ 和 $...$ 数学块不被后续处理破坏
+    const saved = [];
+    html = html.replace(/\$\$[\s\S]*?\$\$/g, m => { saved.push(m); return `%%MATHBLOCK${saved.length-1}%%`; });
+    html = html.replace(/\$[^$\n]+?\$/g, m => { saved.push(m); return `%%MATHINLINE${saved.length-1}%%`; });
     html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     html = html.replace(/\*(.+?)\*/g, '<em style="color:var(--text-secondary)">$1</em>');
     html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
     html = html.replace(/\n/g, '<br>');
+    // 还原数学块
+    html = html.replace(/%%MATHBLOCK(\d+)%%/g, (_, i) => saved[+i]);
+    html = html.replace(/%%MATHINLINE(\d+)%%/g, (_, i) => saved[+i]);
     return html;
   },
 
