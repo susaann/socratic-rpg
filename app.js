@@ -5226,7 +5226,7 @@ ${knowledgeMapRef}
 
     if (window.renderMathInElement) {
       renderMathInElement(contentEl, {
-        delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}],
+        delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\(', right: '\\)', display: false}, {left: '\\[', right: '\\]', display: true}],
         throwOnError: false
       });
     }
@@ -5422,7 +5422,7 @@ ${knowledgeMapRef}
     const div = document.createElement('div');
     div.className = 'message ' + (role === 'user' ? 'user' : role === 'system' ? 'system' : 'ai');
     if (role === 'system') {
-      div.innerHTML = `<div class="message-bubble">${this.escapeHtml(content)}</div>`;
+      div.innerHTML = `<div class="message-bubble">${this.renderContent(content)}</div>`;
     } else {
       const teacher = this.getCurrentTeacher();
       const avatarLetter = role === 'user' ? '旅' : (teacher.name ? teacher.name.charAt(0) : '师');
@@ -5443,7 +5443,7 @@ ${knowledgeMapRef}
     this.scrollToBottom();
     if (window.renderMathInElement) {
       renderMathInElement(div, {
-        delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}],
+        delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\(', right: '\\)', display: false}, {left: '\\[', right: '\\]', display: true}],
         throwOnError: false
       });
     }
@@ -5724,7 +5724,7 @@ ${knowledgeMapRef}
     const div = document.createElement('div');
     div.className = 'message ' + (role === 'user' ? 'user' : role === 'system' ? 'system' : 'ai');
     if (role === 'system') {
-      div.innerHTML = `<div class="message-bubble">${this.escapeHtml(content)}</div>`;
+      div.innerHTML = `<div class="message-bubble">${this.renderContent(content)}</div>`;
     } else {
       const teacher = this.getHomeworkTeacher();
       const avatarLetter = role === 'user' ? '旅' : (teacher.name ? teacher.name.charAt(0) : '师');
@@ -5741,7 +5741,7 @@ ${knowledgeMapRef}
     this.hwScrollToBottom();
     if (window.renderMathInElement) {
       renderMathInElement(div, {
-        delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}],
+        delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\(', right: '\\)', display: false}, {left: '\\[', right: '\\]', display: true}],
         throwOnError: false
       });
     }
@@ -6337,7 +6337,7 @@ ${learnedWordsStr}
     const div = document.createElement('div');
     div.className = 'message ' + (role === 'user' ? 'user' : role === 'system' ? 'system' : 'ai');
     if (role === 'system') {
-      div.innerHTML = `<div class="message-bubble">${this.escapeHtml(content)}</div>`;
+      div.innerHTML = `<div class="message-bubble">${this.renderContent(content)}</div>`;
     } else {
       const p = this.state.pet;
       const appearance = this.getPetAppearance();
@@ -6357,7 +6357,7 @@ ${learnedWordsStr}
     this.petScrollToBottom();
     if (window.renderMathInElement) {
       renderMathInElement(div, {
-        delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}],
+        delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\(', right: '\\)', display: false}, {left: '\\[', right: '\\]', display: true}],
         throwOnError: false
       });
     }
