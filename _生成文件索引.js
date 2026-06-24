@@ -61,7 +61,7 @@ for (const dir of TARGET_DIRS) {
 }
 
 // 写入文件
-const outputPath = path.join(ROOT, '文件索引.json');
+const outputPath = path.join(ROOT, 'file-index.json');
 fs.writeFileSync(outputPath, JSON.stringify(index, null, 2), 'utf-8');
 
 console.log('✅ 文件索引已生成：' + outputPath);

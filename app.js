@@ -770,7 +770,7 @@ const App = {
       } catch(e) {}
       // 第2层：预生成的 文件索引.json（覆盖/补充）
       try {
-        const resp = await fetch('文件索引.json');
+        const resp = await fetch('file-index.json');
         if (resp.ok) {
           const staticIndex = await resp.json();
           Object.assign(merged, staticIndex); // 预生成优先级更高

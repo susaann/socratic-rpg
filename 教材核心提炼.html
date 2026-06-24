@@ -184,7 +184,7 @@ let _fileIndex = null;
 async function getFileIndex() {
   if (_fileIndex) return _fileIndex;
   try {
-    const r = await fetch('文件索引.json');
+    const r = await fetch('file-index.json');
     if (r.ok) { _fileIndex = await r.json(); return _fileIndex; }
   } catch(e) {}
   return {};

@@ -218,7 +218,7 @@ let _fileIndex = null;
 async function _loadFileIndex() {
   if (_fileIndex) return _fileIndex;
   try {
-    const resp = await fetch('文件索引.json');
+    const resp = await fetch('file-index.json');
     if (resp.ok) {
       _fileIndex = await resp.json();
       console.log('[文件索引] 已加载，共 ' + Object.keys(_fileIndex).length + ' 个目录');

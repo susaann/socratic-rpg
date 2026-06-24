@@ -253,7 +253,7 @@ async function loadHomeworkFiles() {
     // 尝试从文件索引加载作业文件列表
     let files = [];
     try {
-      const r = await fetch('文件索引.json');
+      const r = await fetch('file-index.json');
       if (r.ok) {
         const idx = await r.json();
         files = (idx['homework/待批改/'] || []).filter(f => f !== 'README.md');
