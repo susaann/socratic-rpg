@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>作业批改 — 视界探索者教团</title>
+<link rel="stylesheet" href="lib/katex/katex.min.css">
 <style>
 :root {
   --bg: #f5f0e8; --card: #fff; --text: #2c2416; --text2: #7a6b55;
@@ -137,6 +138,8 @@ select:focus, textarea:focus, input:focus { outline: none; border-color: var(--a
 
 </div>
 
+<script src="lib/katex/katex.min.js"></script>
+<script src="lib/katex/auto-render.min.js"></script>
 <script>
 // ===== 状态 =====
 const LS_PREFIX = 'order_';
@@ -397,17 +400,40 @@ function checkAutoEnd(reply) {
 }
 
 // ===== 聊天 UI =====
+function renderMessage(text) {
+  // 转义 HTML
+  let html = text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    // 粗体 **text**
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    // 斜体 *text*（但不能匹配 LaTeX $...$ 里的内容）
+    .replace(/(?<!\$)\*(?!\$)(.+?)(?<!\$)\*(?!\$)/g, '<em>$1</em>')
+    // 换行
+    .replace(/\n/g, '<br>');
+  return html;
+}
+
 function addMessage(role, content) {
   const container = $('#chatMessages');
-  // 清空 empty 提示
   const empty = container.querySelector('.empty-chat');
   if (empty) empty.remove();
 
   const div = document.createElement('div');
   div.className = 'msg ' + role;
-  // 简单渲染 markdown 风格的数学公式
-  div.textContent = content;
+  div.innerHTML = renderMessage(content);
   container.appendChild(div);
+
+  // KaTeX 渲染 LaTeX
+  if (typeof renderMathInElement === 'function') {
+    renderMathInElement(div, {
+      delimiters: [
+        { left: '$$', right: '$$', display: true },
+        { left: '$', right: '$', display: false }
+      ],
+      throwOnError: false
+    });
+  }
+
   container.scrollTop = container.scrollHeight;
 }
 
