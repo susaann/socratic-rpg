@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>教材核心提炼 — 视界探索者教团</title>
+<style>
+:root {
+  --bg: #f5f0e8; --card: #fff; --text: #2c2416; --text2: #7a6b55;
+  --border: #d9ceb8; --accent: #6b4c2a; --accent-light: #ede4d4;
+  --radius: 8px; --sidebar-width: 280px; --font: 'PingFang SC','Microsoft YaHei',sans-serif;
+}
+[data-theme="dark"] {
+  --bg: #1a1815; --card: #242120; --text: #ddd8d0; --text2: #8a8075;
+  --border: #3a3530; --accent: #bd9a6b; --accent-light: #2a2520;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
+a { color: var(--accent); text-decoration: none; }
+
+/* ── 侧边栏 ── */
+#sidebar {
+  width: var(--sidebar-width); min-width: var(--sidebar-width);
+  background: var(--card); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.sidebar-header { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+.sidebar-header h2 { font-size: 15px; font-weight: 600; }
+#course-tree { flex: 1; overflow-y: auto; padding: 8px 0; }
+.course-group { margin-bottom: 4px; }
+.course-header {
+  padding: 8px 16px; font-weight: 600; font-size: 13px;
+  cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background .2s;
+}
+.course-header:hover { background: var(--accent-light); }
+.course-header .arrow { font-size: 10px; transition: transform .2s; width: 12px; }
+.course-header.open .arrow { transform: rotate(90deg); }
+.chapter-list { display: none; }
+.chapter-list.open { display: block; }
+.chapter-item {
+  padding: 5px 16px 5px 32px; font-size: 12px; cursor: pointer;
+  color: var(--text2); border-left: 2px solid transparent;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.chapter-item:hover { background: var(--accent-light); color: var(--text); }
+.section-item {
+  padding: 4px 16px 4px 48px; font-size: 11px; cursor: pointer;
+  color: var(--text2); border-left: 2px solid transparent;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.section-item:hover { background: var(--accent-light); color: var(--text); }
+.section-item.active { border-left-color: var(--accent); color: var(--text); font-weight: 600; background: var(--accent-light); }
+
+/* ── 主区域 ── */
+#main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.toolbar {
+  padding: 10px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px; font-size: 13px;
+  background: var(--card); flex-shrink: 0; flex-wrap: wrap;
+}
+.toolbar .info { color: var(--text2); font-size: 12px; flex: 1; }
+.btn {
+  padding: 6px 16px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--card); color: var(--text); font-size: 13px; cursor: pointer; font-family: var(--font);
+  transition: all .2s;
+}
+.btn:hover { background: var(--accent-light); border-color: var(--accent); }
+.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-primary:hover { opacity: .85; }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.api-row { display: flex; gap: 8px; align-items: center; }
+.api-row input[type="password"] { padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); color: var(--text); font-size: 12px; width: 280px; }
+.api-row input:focus { outline: none; border-color: var(--accent); }
+
+/* ── 内容区 ── */
+#content-area { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+#section-info { font-size: 13px; color: var(--text2); }
+#result-area {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 20px; line-height: 1.8; font-size: 14px; white-space: pre-wrap; word-wrap: break-word;
+  min-height: 200px;
+}
+#result-area:empty::before {
+  content: '选择左侧一节教材，点击"提炼核心问题"';
+  color: var(--text2); font-size: 13px;
+}
+#result-area .katex { font-size: 1.1em; }
+#result-area h3 { margin: 16px 0 8px; font-size: 15px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+#result-area h4 { margin: 12px 0 4px; font-size: 14px; }
+#result-area ul { padding-left: 20px; margin: 6px 0; }
+#result-area li { margin: 4px 0; }
+#result-area .q { font-weight: 600; color: var(--accent); }
+.loading-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.12); z-index: 100; align-items: center; justify-content: center; }
+.loading-overlay.show { display: flex; }
+.loading-box { background: var(--card); padding: 24px 36px; border-radius: var(--radius); box-shadow: 0 4px 20px rgba(0,0,0,0.15); text-align: center; }
+.loading-box .icon { font-size: 32px; margin-bottom: 8px; }
+.loading-box .text { font-size: 14px; color: var(--text); }
+
+/* ── 响应式 ── */
+@media (max-width: 768px) {
+  #sidebar { position: fixed; left: 0; top: 0; z-index: 50; transform: translateX(-100%); transition: transform .3s; }
+  #sidebar.open { transform: translateX(0); box-shadow: 2px 0 12px rgba(0,0,0,0.15); }
+  .mobile-menu { display: flex !important; }
+}
+.mobile-menu { display: none; position: fixed; top: 8px; left: 8px; z-index: 51; }
+.mobile-menu button { padding: 6px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); cursor: pointer; font-size: 16px; }
+</style>
+</head>
+<body>
+
+<!-- 手机菜单按钮 -->
+<div class="mobile-menu">
+  <button onclick="toggleSidebar()">☰</button>
+</div>
+
+<!-- ===== 侧边栏 ===== -->
+<div id="sidebar">
+  <div class="sidebar-header">
+    <span>📚</span><h2>教材目录</h2>
+    <button class="btn" style="margin-left:auto;font-size:11px;padding:2px 8px" onclick="toggleSidebar()">✕</button>
+  </div>
+  <div id="course-tree">
+    <div style="padding:20px;color:var(--text2);font-size:13px">加载中…</div>
+  </div>
+</div>
+
+<!-- ===== 主区域 ===== -->
+<div id="main">
+  <div class="toolbar">
+    <div class="api-row">
+      <span style="font-size:12px">🔑</span>
+      <input type="password" id="apiKeyInput" placeholder="DeepSeek API Key" style="width:200px">
+      <button class="btn btn-sm" onclick="saveKey()">保存</button>
+    </div>
+    <span class="info" id="statusBar">选择一节教材开始提炼</span>
+    <button class="btn btn-primary" id="extractBtn" onclick="extractCore()" disabled>🎯 提炼核心问题</button>
+  </div>
+
+  <div id="content-area">
+    <div id="section-info"></div>
+    <div id="result-area"></div>
+  </div>
+</div>
+
+<!-- ===== 加载遮罩 ===== -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-box">
+    <div class="icon">🧠</div>
+    <div class="text" id="loadingText">AI 正在分析教材…</div>
+  </div>
+</div>
+
+<script>
+// ===== 状态 =====
+const LS_PREFIX = 'order_';
+const MODEL = { name: 'deepseek-chat', api: 'https://api.deepseek.com/v1/chat/completions' };
+let state = { apiKey: '', courses: [], selectedSection: null };
+
+// ===== 工具 =====
+const $ = s => document.querySelector(s);
+
+function saveKey() {
+  const key = $('#apiKeyInput').value.trim();
+  if (!key) return;
+  state.apiKey = key;
+  localStorage.setItem(LS_PREFIX + 'api_key_extract', key);
+  checkReady();
+}
+
+function toggleSidebar() { $('#sidebar').classList.toggle('open'); }
+
+// ===== 初始化 =====
+async function init() {
+  // 加载 API Key
+  const saved = localStorage.getItem(LS_PREFIX + 'api_key_extract') || localStorage.getItem(LS_PREFIX + 'api_key') || '';
+  if (saved) { state.apiKey = saved; $('#apiKeyInput').value = saved; }
+  // 加载教材
+  await scanCourses();
+  checkReady();
+}
+
+// ===== 教材扫描 =====
+let _fileIndex = null;
+async function getFileIndex() {
+  if (_fileIndex) return _fileIndex;
+  try {
+    const r = await fetch('文件索引.json');
+    if (r.ok) { _fileIndex = await r.json(); return _fileIndex; }
+  } catch(e) {}
+  return {};
+}
+
+async function scanDir(dirUrl) {
+  const idx = await getFileIndex();
+  const key = dirUrl.replace(/\/$/, '') + '/';
+  if (idx[key] && idx[key].length) return [...idx[key]];
+  try {
+    const r = await fetch(dirUrl);
+    if (r.ok) {
+      const html = await r.text();
+      const files = [];
+      const re = /<a href="([^"]+)"/g; let m;
+      while ((m = re.exec(html)) !== null) {
+        let n = m[1]; try { n = decodeURIComponent(n); } catch(e) {}
+        if (n !== '.' && n !== '..' && n !== 'Parent Directory') files.push(n.endsWith('/') ? n.slice(0,-1) : n);
+      }
+      return files;
+    }
+  } catch(e) {}
+  return [];
+}
+
+async function scanCourses() {
+  const items = await scanDir('教材/');
+  const courses = [];
+  for (const item of items) {
+    const subItems = await scanDir('教材/' + encodeURIComponent(item) + '/');
+    const mdFiles = subItems.filter(f => f.endsWith('.md'));
+    if (mdFiles.length) {
+      const chapters = parseChapters(mdFiles, item + '/');
+      courses.push({ courseName: item, coursePath: item + '/', chapters });
+    }
+  }
+  state.courses = courses;
+  renderTree();
+  if (!courses.length) {
+    $('#course-tree').innerHTML = '<div style="padding:20px;color:var(--text2);font-size:13px">未找到教材，请确认 教材/ 目录存在</div>';
+  }
+}
+
+function parseChapters(files, prefix) {
+  const map = new Map();
+  files.forEach(f => {
+    const base = f.includes('/') ? f.split('/').pop() : f;
+    const m = base.match(/^第(\d+)章_([\d.]+)_(.+)\.md$/);
+    if (!m) return;
+    const chNum = parseInt(m[1]);
+    if (!map.has(chNum)) map.set(chNum, { chapterNum: chNum, title: '第' + chNum + '章', sections: [] });
+    map.get(chNum).sections.push({ num: m[2], title: m[3], filename: prefix + base });
+  });
+  const outline = Array.from(map.values());
+  outline.sort((a, b) => a.chapterNum - b.chapterNum);
+  outline.forEach(ch => {
+    ch.sections.sort((a, b) => {
+      const ap = a.num.split('.').map(Number), bp = b.num.split('.').map(Number);
+      for (let i = 0; i < Math.max(ap.length, bp.length); i++) { if ((ap[i]||0) !== (bp[i]||0)) return (ap[i]||0) - (bp[i]||0); }
+      return 0;
+    });
+  });
+  return outline;
+}
+
+// ===== 侧边栏渲染 =====
+function renderTree() {
+  const tree = $('#course-tree');
+  if (!state.courses.length) return;
+  tree.innerHTML = state.courses.map((c, ci) => {
+    const totalSec = c.chapters.reduce((s, ch) => s + ch.sections.length, 0);
+    return `<div class="course-group">
+      <div class="course-header" onclick="toggleCourse(this)" data-idx="${ci}">
+        <span class="arrow">▶</span>
+        <span>${c.courseName}</span>
+        <span style="font-size:10px;color:var(--text2);margin-left:auto">${c.chapters.length}章 ${totalSec}节</span>
+      </div>
+      <div class="chapter-list" data-idx="${ci}">
+        ${c.chapters.map(ch => `
+          <div class="chapter-item" onclick="toggleChapter(this)" data-course="${ci}" data-ch="${ch.chapterNum}">
+            ▶ 第${ch.chapterNum}章
+          </div>
+          <div class="chapter-sections" style="display:none">
+            ${ch.sections.map(s => `
+              <div class="section-item" onclick="selectSection('${c.coursePath}','${s.filename.replace(/'/g,"\\'")}','第${ch.chapterNum}章 ${s.num} ${s.title}','${c.courseName}','${ch.chapterNum}','${s.num}','${s.title.replace(/'/g,"\\'")}')" data-file="${s.filename}">
+                ${ch.chapterNum}.${s.num} ${s.title}
+              </div>
+            `).join('')}
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleCourse(el) {
+  el.classList.toggle('open');
+  const list = document.querySelector(`.chapter-list[data-idx="${el.dataset.idx}"]`);
+  if (list) list.classList.toggle('open');
+}
+function toggleChapter(el) {
+  const sec = el.nextElementSibling;
+  if (sec) { sec.style.display = sec.style.display === 'none' ? 'block' : 'none'; }
+}
+
+// ===== 选择章节 =====
+async function selectSection(coursePath, filename, displayName, courseName, chNum, secNum, title) {
+  // 高亮
+  $$('.section-item').forEach(el => el.classList.remove('active'));
+  event.target.classList.add('active');
+
+  state.selectedSection = { coursePath, filename, displayName, courseName, chapterNum: chNum, num: secNum, title };
+
+  $('#section-info').textContent = '📖 ' + displayName + ' | ' + courseName;
+  $('#statusBar').textContent = '已选择：' + displayName;
+
+  // 显示教材内容预览
+  try {
+    const resp = await fetch(filename);
+    if (resp.ok) {
+      const md = await resp.text();
+      const preview = md.replace(/^## .+$/gm, '■ $&').substring(0, 300) + '…';
+      const render = `📄 **教材预览**（前300字）：\n\n${preview}`;
+      // 清空旧结果
+      $('#result-area').innerHTML = '';
+      // 放个提示
+      $('#result-area').innerHTML = render.replace(/\n/g, '<br>');
+    }
+  } catch(e) {}
+
+  checkReady();
+}
+
+function checkReady() {
+  $('#extractBtn').disabled = !(state.apiKey && state.selectedSection);
+}
+
+// ===== 核心提炼 =====
+async function extractCore() {
+  if (!state.apiKey) return alert('请先设置 API Key');
+  if (!state.selectedSection) return alert('请先选择一节教材');
+
+  const { filename, displayName, courseName } = state.selectedSection;
+
+  // 加载教材内容
+  let content;
+  try {
+    const resp = await fetch(filename);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    content = await resp.text();
+  } catch(e) {
+    $('#result-area').innerHTML = '<div style="color:red">❌ 加载教材失败：' + e.message + '</div>';
+    return;
+  }
+
+  if (content.length < 50) {
+    $('#result-area').innerHTML = '<div style="color:var(--text2)">⚠️ 教材内容过短，可能无法有效提炼</div>';
+  }
+
+  $('#result-area').innerHTML = '';
+  showLoading(true, '🧠 AI 正在分析教材，提炼核心问题…');
+
+  try {
+    // 截断过长内容（控制 token）
+    const truncated = content.length > 8000 ? content.substring(0, 8000) + '\n\n…（教材过长，已截断）' : content;
+
+    const systemPrompt = `你是一位教学分析师。你的任务是从一节教材中提炼出最核心的问题和知识点。
+
+要求：
+1. 找出本节教材最核心的 3-8 个问题，这些问题应该覆盖本节的所有关键知识点。
+2. 每个问题要精准、具体，直接指向概念的本质。
+3. 按逻辑顺序排列，从基础到深入。
+4. 对每个问题，附上简要的"考察意图"（1-2句话说明为什么这个问题重要）。
+5. 如果涉及公式或数学概念，用 $...$ 或 $$...$$ 格式。
+6. 输出格式如下（用 Markdown）：
+
+## 📍 核心问题
+
+### Q1: [问题]
+**考察意图**：为什么问这个问题
+**关键概念**：涉及的概念名词
+
+### Q2: [问题]
+...
+
+## 📐 知识框架
+用一句话串联本节所有核心概念：...`;
+
+    const userMsg = `请分析以下教材内容，提炼核心问题。\n\n---\n课程：${courseName}\n章节：${displayName}\n\n---\n教材内容：\n\n${truncated}`;
+
+    const resp = await fetch(MODEL.api, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.apiKey },
+      body: JSON.stringify({
+        model: MODEL.name,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMsg }
+        ],
+        temperature: 0.4,
+        max_tokens: 4096
+      })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error?.message || 'API 请求失败 (HTTP ' + resp.status + ')');
+    }
+
+    const data = await resp.json();
+    const result = data.choices[0].message.content;
+
+    // 渲染结果
+    renderResult(result);
+
+    // 如果缓存了 token 统计
+    if (data.usage) {
+      const hit = data.usage.prompt_cache_hit_tokens || 0;
+      const miss = data.usage.prompt_cache_miss_tokens || 0;
+      const comp = data.usage.completion_tokens || 0;
+      console.log('📊 Token: cacheHit=' + hit + ' cacheMiss=' + miss + ' completion=' + comp);
+    }
+
+  } catch(e) {
+    $('#result-area').innerHTML = '<div style="color:red">❌ 提炼失败：' + e.message + '</div>';
+  }
+  showLoading(false);
+}
+
+// ===== 渲染结果 =====
+function renderResult(md) {
+  const container = $('#result-area');
+  // 简单的 markdown → HTML 渲染（支持标题、列表、加粗）
+  let html = md
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/^### (.+)$/gm, '<h4>$1</h4>')
+    .replace(/^## (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^# (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^\*\*(.+)\*\*/gm, '<strong>$1</strong>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^\- (.+)$/gm, '<li>$1</li>')
+    .replace(/^\d\..+$/gm, m => '<li>' + m + '</li>')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br>');
+
+  // 处理列表连续
+  html = html.replace(/(<li>.*?)(<\/p>)/g, '$1');
+
+  container.innerHTML = '<div class="result-content">' + html + '</div>';
+  $('#statusBar').textContent = '✅ 提炼完成';
+}
+
+// ===== 加载动画 =====
+function showLoading(show, text) {
+  const overlay = $('#loadingOverlay');
+  overlay.classList.toggle('show', show);
+  if (text) $('#loadingText').textContent = text;
+}
+
+// ===== 启动 =====
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
