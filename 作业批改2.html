@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>作业批改 — 视界探索者教团</title>
+<link rel="stylesheet" href="lib/katex/katex.min.css">
+<style>
+:root {
+  --bg: #f5f0e8; --card: #fff; --text: #2c2416; --text2: #7a6b55;
+  --border: #d9ceb8; --accent: #6b4c2a; --accent-light: #ede4d4;
+  --radius: 8px; --font: 'PingFang SC','Microsoft YaHei',sans-serif;
+  --msg-user: #e8e0d4; --msg-ai: #fff;
+}
+[data-theme="dark"] {
+  --bg: #1a1815; --card: #242120; --text: #ddd8d0; --text2: #8a8075;
+  --border: #3a3530; --accent: #bd9a6b; --accent-light: #2a2520;
+  --msg-user: #3a3530; --msg-ai: #242120;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; }
+.header { display: flex; align-items: center; gap: 12px; padding: 12px 20px; background: var(--card); border-bottom: 1px solid var(--border); flex-shrink: 0; flex-wrap: wrap; }
+.header h1 { font-size: 17px; font-weight: 600; }
+.header .sub { font-size: 12px; color: var(--text2); margin-left: auto; }
+.btn { padding: 6px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); cursor: pointer; font-size: 13px; font-family: var(--font); transition: all .2s; }
+.btn:hover { background: var(--accent-light); border-color: var(--accent); }
+.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-primary:hover { opacity: .85; }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+select, textarea, input { font-family: var(--font); border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); color: var(--text); padding: 8px 12px; font-size: 13px; }
+select:focus, textarea:focus, input:focus { outline: none; border-color: var(--accent); }
+.container { flex: 1; display: flex; overflow: hidden; }
+/* 设置面板 */
+.setup-panel { width: 340px; min-width: 340px; padding: 16px; overflow-y: auto; border-right: 1px solid var(--border); display: flex; flex-direction: column; gap: 12px; }
+.setup-panel label { font-size: 12px; font-weight: 600; color: var(--text2); }
+.setup-panel select, .setup-panel textarea { width: 100%; }
+.setup-panel textarea { resize: vertical; min-height: 120px; }
+.api-row { display: flex; gap: 8px; align-items: center; }
+.api-row input { flex: 1; }
+/* 教师卡片 */
+.teacher-grid { display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; }
+.teacher-card { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; transition: all .2s; font-size: 13px; }
+.teacher-card:hover { background: var(--accent-light); }
+.teacher-card.selected { border-color: var(--accent); background: var(--accent-light); }
+.teacher-card .avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #fff; flex-shrink: 0; }
+.teacher-card .role-badge { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: var(--border); margin-left: auto; }
+/* 聊天区 */
+.chat-area { flex: 1; display: flex; flex-direction: column; }
+.chat-header { padding: 10px 20px; border-bottom: 1px solid var(--border); font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.chat-messages { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+.msg { max-width: 80%; padding: 10px 16px; border-radius: var(--radius); font-size: 14px; line-height: 1.7; white-space: pre-wrap; word-wrap: break-word; }
+.msg.user { align-self: flex-end; background: var(--msg-user); }
+.msg.ai { align-self: flex-start; background: var(--msg-ai); border: 1px solid var(--border); }
+.msg.system { align-self: center; background: transparent; color: var(--text2); font-size: 12px; border: none; padding: 4px 12px; }
+
+/* 斜体渲染为灰色（白天模式） */
+.msg em {
+  color: #888;
+}
+
+/* 深色模式：使用更柔和的暖灰 */
+[data-theme="dark"] .msg em {
+  color: var(--text2); /* 即 #8a8075 */
+}
+.msg .katex { font-size: 1.1em; }
+.chat-input-area { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; gap: 8px; align-items: flex-end; flex-shrink: 0; }
+.chat-input-area textarea { flex: 1; resize: none; min-height: 40px; max-height: 120px; }
+.typing { display: flex; align-items: center; gap: 4px; padding: 8px 0; font-size: 13px; color: var(--text2); }
+.typing .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text2); animation: bounce 1.2s infinite; }
+.typing .dot:nth-child(2) { animation-delay: .2s; }
+.typing .dot:nth-child(3) { animation-delay: .4s; }
+@keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-4px)} }
+.empty-chat { flex:1; display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:14px; flex-direction:column; gap:8px; }
+.empty-chat .icon { font-size:48px; }
+.hidden { display: none !important; }
+/* 响应式 */
+@media (max-width: 768px) {
+  .container {
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    height: auto;
+  }
+  .header {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .header h1 { font-size: 15px; }
+  .header .sub {
+    font-size: 11px;
+    width: 100%;
+    order: 10;
+    margin: 0;
+  }
+  .setup-panel {
+    width: 100%;
+    min-width: auto;
+    max-height: 45vh;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 12px;
+  }
+  .teacher-grid { max-height: 140px; }
+  .chat-header { padding: 8px 14px; font-size: 13px; }
+  .chat-messages {
+    padding: 10px 14px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+  .msg { max-width: 92%; font-size: 13px; padding: 8px 12px; }
+  .chat-input-area {
+    padding: 8px 12px;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .chat-input-area textarea { font-size: 13px; min-height: 36px; }
+  .chat-input-area .btn { font-size: 12px; padding: 5px 10px; }
+  .chat-input-area .btn-primary { padding: 5px 14px; }
+
+  /* 新增：让聊天区也弹性撑满 */
+  body {
+    height: 100dvh;
+    overflow: hidden;
+  }
+  .chat-area {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .chat-header,
+  .chat-input-area {
+    flex-shrink: 0;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📝 作业批改</h1>
+  <span class="sub" id="statusText">选择导师和作业后开始</span>
+  <button class="btn" onclick="toggleTheme()" id="themeBtn">🌙</button>
+</div>
+
+<div class="container">
+
+  <!-- ===== 设置面板 ===== -->
+  <div class="setup-panel">
+    <div>
+      <label>🔑 API Key</label>
+      <div class="api-row">
+        <input type="password" id="apiKeyInput" placeholder="sk-..." value="">
+        <button class="btn btn-sm" onclick="saveApiKey()">保存</button>
+      </div>
+    </div>
+
+    <div>
+      <label>👤 选择导师</label>
+      <div id="teacherList" class="teacher-grid">
+        <div style="color:var(--text2);font-size:12px;padding:8px">加载中…</div>
+      </div>
+    </div>
+
+    <div>
+      <label>📄 作业内容</label>
+      <textarea id="hwContentInput" placeholder="在此粘贴作业内容…&#10;&#10;也可以从下方选择已上传的作业文件"></textarea>
+    </div>
+
+    <div>
+      <label>📁 或选择作业文件</label>
+      <select id="hwFileSelect" onchange="loadHomeworkFile()">
+        <option value="">-- 不选，用上方粘贴内容 --</option>
+      </select>
+    </div>
+
+    <button class="btn btn-primary" id="startBtn" onclick="startHomework()" disabled>🚀 开始批改</button>
+  </div>
+
+  <!-- ===== 聊天区 ===== -->
+  <div class="chat-area">
+    <div class="chat-header">
+      <span id="chatTeacherDisplay">尚未选择导师</span>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+      <div class="empty-chat">
+        <div class="icon">📝</div>
+        <div>选择导师和作业，点击"开始批改"</div>
+      </div>
+    </div>
+    <div class="chat-input-area hidden" id="chatInputArea">
+      <textarea id="chatInput" rows="1" placeholder="输入你的答案… (Enter发送, Shift+Enter换行)" onkeydown="onInputKey(event)"></textarea>
+      <button class="btn btn-primary" onclick="sendMessage()">发送</button>
+      <button class="btn" onclick="sendStuck()" title="卡住了，求提示">🆘</button>
+      <button class="btn" onclick="endHomework()" title="结束批改">⏹️</button>
+    </div>
+    <div id="typingIndicator" class="typing hidden" style="padding:4px 20px">
+      <span>导师正在批改</span>
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+    </div>
+  </div>
+
+</div>
+
+<script src="lib/katex/katex.min.js"></script>
+<script src="lib/katex/auto-render.min.js"></script>
+<script>
+// ===== RPG 收集物系统（与主应用共享）=====
+const INITIAL_TREES = {
+  oak: { name: '坚韧之橡树', guardian: '格里高尔', icon: '🌳', branches: [], branchesCount: 0, phase: '幼苗期', items: { acorn: 0, goldenAcorn: 0 } },
+  willow: { name: '联结之柳树', guardian: '以实玛丽', icon: '🌿', branches: [], branchesCount: 0, phase: '幼苗期', items: { dew: 0, oceanTear: 0 } },
+  laurel: { name: '严谨之月桂', guardian: '十四行诗', icon: '🍃', branches: [], branchesCount: 0, phase: '幼苗期', items: { petal: 0, goldenFlower: 0 } }
+};
+
+function getTreePhase(count) {
+  if (count <= 0) return '幼苗期';
+  if (count <= 5) return '幼苗期';
+  if (count <= 15) return '成长期';
+  if (count <= 30) return '繁茂期';
+  return '圣树期';
+}
+
+function getBondLevel(value) {
+  if (value >= 100) return '传承';
+  if (value >= 50) return '知己';
+  if (value >= 20) return '信任';
+  return '相识';
+}
+
+function getTeacherTreeMap(teacherName) {
+  const map = {
+    '格里高尔': 'oak', '刻晴': 'oak',
+    '以实玛丽': 'willow', '三月七': 'willow',
+    '十四行诗': 'laurel', '甘雨': 'laurel'
+  };
+  return map[teacherName] || null;
+}
+
+function getTreeProduct(treeKey) {
+  const map = {
+    oak: { normal: '🟤 为什么橡子', rare: '✨ 金色橡子', key: 'acorn', rareKey: 'goldenAcorn' },
+    willow: { normal: '💧 记忆露水', rare: '🌊 海洋之泪', key: 'dew', rareKey: 'oceanTear' },
+    laurel: { normal: '🌸 逻辑花瓣', rare: '🌟 黄金比例花', key: 'petal', rareKey: 'goldenFlower' }
+  };
+  return map[treeKey];
+}
+
+function getGuardianForDisciple(discipleName) {
+  const map = { '刻晴': '格里高尔', '三月七': '以实玛丽', '甘雨': '十四行诗' };
+  return map[discipleName] || discipleName;
+}
+
+function loadRPGData() {
+  return {
+    trees: JSON.parse(localStorage.getItem(LS_PREFIX + 'rpg_trees') || JSON.stringify(INITIAL_TREES)),
+    bonds: JSON.parse(localStorage.getItem(LS_PREFIX + 'rpg_bonds') || '{"格里高尔":{"value":0,"level":"相识"},"以实玛丽":{"value":0,"level":"相识"},"十四行诗":{"value":0,"level":"相识"}}')
+  };
+}
+
+function saveRPGData(trees, bonds) {
+  localStorage.setItem(LS_PREFIX + 'rpg_trees', JSON.stringify(trees));
+  localStorage.setItem(LS_PREFIX + 'rpg_bonds', JSON.stringify(bonds));
+}
+
+function addTreeBranch(teacherName, title) {
+  const rpg = loadRPGData();
+  const treeKey = getTeacherTreeMap(teacherName);
+  if (!treeKey) return null;
+  const tree = rpg.trees[treeKey];
+  tree.branchesCount += 1;
+  tree.branches.push({ num: tree.branchesCount, title: title || '作业批改' });
+  tree.phase = getTreePhase(tree.branchesCount);
+  const product = getTreeProduct(treeKey);
+  const isRare = Math.random() < 0.15;
+  if (isRare) {
+    tree.items[product.rareKey] = (tree.items[product.rareKey] || 0) + 1;
+  } else {
+    tree.items[product.key] = (tree.items[product.key] || 0) + 1;
+  }
+  saveRPGData(rpg.trees, rpg.bonds);
+  return { tree, product: isRare ? product.rare : product.normal, isRare };
+}
+
+function addBond(name, amount) {
+  const rpg = loadRPGData();
+  if (!rpg.bonds[name]) { rpg.bonds[name] = { value: 0, level: '相识' }; }
+  rpg.bonds[name].value += amount;
+  rpg.bonds[name].level = getBondLevel(rpg.bonds[name].value);
+  saveRPGData(rpg.trees, rpg.bonds);
+  return rpg.bonds[name];
+}
+
+// ===== 状态 =====
+const LS_PREFIX = 'order_';
+const MODEL = { name: 'deepseek-chat', api: 'https://api.deepseek.com/v1/chat/completions' };
+let state = {
+  apiKey: '',
+  teachers: [],
+  selectedTeacher: null,
+  homeworkActive: false,
+  homeworkContent: '',
+  messages: [],
+  teacherFullMd: '',
+};
+
+// ===== 工具函数 =====
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+function saveApiKey() {
+  const key = $('#apiKeyInput').value.trim();
+  if (!key) return alert('请输入 API Key');
+  state.apiKey = key;
+  localStorage.setItem(LS_PREFIX + 'api_key', key);
+  $('.api-row input').type = 'password';
+  checkReady();
+}
+
+function toggleTheme() {
+  const theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem(LS_PREFIX + 'settings', JSON.stringify({ theme }));
+  $('#themeBtn').textContent = theme === 'dark' ? '☀️' : '🌙';
+}
+
+// ===== 初始化 =====
+async function init() {
+  // 加载主题
+  try {
+    const s = JSON.parse(localStorage.getItem(LS_PREFIX + 'settings'));
+    if (s && s.theme === 'dark') { document.documentElement.setAttribute('data-theme', 'dark'); $('#themeBtn').textContent = '☀️'; }
+  } catch(e) {}
+  // 加载 API Key
+  const savedKey = localStorage.getItem(LS_PREFIX + 'api_key') || '';
+  if (savedKey) { state.apiKey = savedKey; $('#apiKeyInput').value = savedKey; }
+  // 加载教师
+  await loadTeachers();
+  // 加载作业文件列表
+  await loadHomeworkFiles();
+}
+
+// ===== 教师系统（直接从 roster.json + 各教师 .md 文件加载，无需目录列表）=====
+async function loadTeachers() {
+  const container = $('#teacherList');
+  try {
+    // 加载 roster.json（指定文件，GH Pages 上正常 fetch）
+    const rosterResp = await fetch('老师/roster.json');
+    if (!rosterResp.ok) throw new Error('无法加载 roster.json (HTTP ' + rosterResp.status + ')');
+    const roster = await rosterResp.json();
+
+    // 根据 roster 中的 id 逐个加载教师 .md 文件
+    const teachers = [];
+    for (const meta of roster) {
+      const id = meta.id;
+      const resp = await fetch('老师/' + encodeURIComponent(id) + '.md');
+      const md = resp.ok ? await resp.text() : '';
+      teachers.push({
+        id,
+        name: meta.name || id,
+        namePure: meta.namePure || id,
+        title: meta.title || '',
+        orderRole: meta.orderRole || '',
+        avatarColor: meta.avatarColor || '#888',
+        fullMd: md,
+        personaBrief: md ? md.split('\n').filter(l => l.trim()).slice(0, 20).join('\n') : ''
+      });
+    }
+    state.teachers = teachers;
+    renderTeachers();
+  } catch(e) {
+    container.innerHTML = '<div style="color:var(--text2);font-size:12px;padding:8px">❌ 加载教师失败：' + e.message + '</div>';
+  }
+}
+
+function renderTeachers() {
+  const container = $('#teacherList');
+  if (!state.teachers.length) {
+    container.innerHTML = '<div style="color:var(--text2);font-size:12px;padding:8px">暂无教师数据</div>';
+    return;
+  }
+  container.innerHTML = state.teachers.map(t => `
+    <div class="teacher-card ${state.selectedTeacher?.id === t.id ? 'selected' : ''}"
+         onclick="selectTeacher('${t.id}')">
+      <div class="avatar" style="background:${t.avatarColor}">${t.namePure[0]}</div>
+      <div>
+        <div>${t.name}</div>
+        <div style="font-size:11px;color:var(--text2)">${t.title || t.orderRole || ''}</div>
+      </div>
+      <span class="role-badge">${t.orderRole === '守护导师' ? '🌳' : '🌱'}</span>
+    </div>
+  `).join('');
+}
+
+function selectTeacher(id) {
+  state.selectedTeacher = state.teachers.find(t => t.id === id) || null;
+  renderTeachers();
+  $('#chatTeacherDisplay').textContent = state.selectedTeacher ? '👤 ' + state.selectedTeacher.name : '尚未选择导师';
+  checkReady();
+}
+
+// ===== 作业文件 =====
+async function loadHomeworkFiles() {
+  const sel = $('#hwFileSelect');
+  try {
+    // 尝试从文件索引加载作业文件列表
+    let files = [];
+    try {
+      const r = await fetch('file-index.json');
+      if (r.ok) {
+        const idx = await r.json();
+        files = (idx['homework/待批改/'] || []).filter(f => f !== 'README.md');
+      }
+    } catch(e) {}
+    if (files.length) {
+      files.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f; opt.textContent = f;
+        sel.appendChild(opt);
+      });
+    } else {
+      const opt = document.createElement('option');
+      opt.value = ''; opt.textContent = '⚠️ 暂无可选文件，请直接粘贴';
+      sel.appendChild(opt);
+    }
+  } catch(e) { /* 文件列表非关键功能，静默失败 */ }
+}
+
+async function loadHomeworkFile() {
+  const sel = $('#hwFileSelect');
+  if (!sel.value) return;
+  try {
+    const resp = await fetch('homework/待批改/' + encodeURI(sel.value));
+    if (resp.ok) {
+      $('#hwContentInput').value = await resp.text();
+    }
+  } catch(e) { alert('加载文件失败：' + e.message); }
+}
+
+// ===== 开始批改 =====
+function checkReady() {
+  $('#startBtn').disabled = !(state.apiKey && state.selectedTeacher);
+}
+
+async function startHomework() {
+  const content = $('#hwContentInput').value.trim();
+  if (!content) return alert('请粘贴作业内容或选择作业文件');
+  if (!state.apiKey) return alert('请先设置 API Key');
+  if (!state.selectedTeacher) return alert('请先选择导师');
+
+  state.homeworkContent = content;
+  state.homeworkActive = true;
+  state.messages = [];
+
+  $('#startBtn').disabled = true;
+  $('#startBtn').classList.add('hidden');
+  $('#chatInputArea').classList.remove('hidden');
+  $('#chatMessages').innerHTML = '';
+  $('#statusText').textContent = '批改中…';
+
+  addMessage('system', '📝 作业批改开始 — ' + state.selectedTeacher.name);
+  await sendToAI(null, true);
+  $('#chatInput').focus();
+}
+
+// ===== AI 通信 =====
+async function sendToAI(userMsg, isKickoff) {
+  showTyping(true);
+  try {
+    if (userMsg) state.messages.push({ role: 'user', content: userMsg });
+
+    // 构建基础系统提示
+    let basePrompt = `你正在运行"视界探索者教团"的苏格拉底式教学 RPG 文字游戏。
+现在是作业批改时间，你作为导师正在一对一辅导学生完成作业。
+
+=== 作业批改规则 ===
+1. 学生已将作业题目发给你。你需要**逐题批改**——每次只处理一道题。
+2. 对于每道题：先让学生说出他的答案或解题思路。
+3. 如果学生正确：简短肯定，然后进入下一题。
+4. 如果学生错误：用苏格拉底反问引导（不直接给答案），指出思路中的问题，让学生自己修正。
+5. 如果学生完全不会：降低难度，给提示，仍然用问题引导。
+6. 学生可以随时说"这题不会"或"跳过"，你就进入下一题。
+7. 所有题目批改完成后，给出口头总结：正确率、哪些知识点需要加强、学习建议。
+8. ⚠️ 数学公式必须用 $...$（行内）或 $$...$$（块级）格式。严禁使用 \\(...\\) 或 \\[...\\] 格式。
+9. 动作描写使用*斜体*格式。
+
+=== 作业内容（必须严格依据以下题目，不得自行编造） ===
+${state.homeworkContent}
+
+=== 导师人设（你就是这位导师） ===
+${state.selectedTeacher.fullMd || state.selectedTeacher.personaBrief || '一位耐心细致的导师'}
+
+=== 重要指令 ===
+1. 你现在就是${state.selectedTeacher.name}，用她的性格、语气、风格说话。
+2. 严格逐题批改，每次只处理一道题。
+3. 不要直接给答案。用反问、反例、提示引导学生自己发现。
+4. 所有题目批改完成后，给出口头总结。`;
+
+    // 如果是首轮，追加启动指令；否则追加继续指令
+    if (isKickoff) {
+      basePrompt += '\n\n现在请开始批改。先呈现第一道题，然后等待学生回答。';
+      state.messages.push({ role: 'user', content: '请开始逐题批改。先呈现第一道题，然后问我的答案。' });
+    } else {
+      basePrompt += '\n\n继续批改下一题。如果已经全部完成，请给出总结。每次回复都要明确指出当前是第几题。';
+    }
+
+    const apiMessages = [
+      { role: 'system', content: systemPrompt },
+      ...state.messages.map(m => ({ role: m.role, content: m.content }))
+    ];
+
+    const resp = await fetch(MODEL.api, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.apiKey },
+      body: JSON.stringify({
+        model: MODEL.name,
+        messages: apiMessages,
+        temperature: 0.8,
+        max_tokens: 2048
+      })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error?.message || 'API 请求失败 (HTTP ' + resp.status + ')');
+    }
+
+    const data = await resp.json();
+    const reply = data.choices[0].message.content;
+    state.messages.push({ role: 'assistant', content: reply });
+    addMessage('ai', reply);
+
+    // 检查是否批改完毕（AI 给出总结）
+    if (isKickoff || reply.includes('总结') || reply.includes('正确率') || reply.includes('全部完成')) {
+      // 继续对话，让学生回答
+    }
+    checkAutoEnd(reply);
+
+  } catch(e) {
+    addMessage('system', '❌ 错误：' + e.message);
+  }
+  showTyping(false);
+}
+
+function checkAutoEnd(reply) {
+  // 如果 AI 显式表示全部批改完成，显示结束按钮
+  if (reply.includes('全部批改完成') || reply.includes('所有题目') && reply.includes('总结')) {
+    // 不自动结束，让学生决定
+  }
+}
+
+// ===== 聊天 UI =====
+function renderMessage(text) {
+  // 转义 HTML
+  let html = text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    // 粗体 **text**
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    // 斜体 *text*（但不能匹配 LaTeX $...$ 里的内容）
+    .replace(/(?<!\$)\*(?!\$)(.+?)(?<!\$)\*(?!\$)/g, '<em>$1</em>')
+    // 换行
+    .replace(/\n/g, '<br>');
+  return html;
+}
+
+function addMessage(role, content) {
+  const container = $('#chatMessages');
+  const empty = container.querySelector('.empty-chat');
+  if (empty) empty.remove();
+
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.innerHTML = renderMessage(content);
+  container.appendChild(div);
+
+  // KaTeX 渲染 LaTeX
+  if (typeof renderMathInElement === 'function') {
+    renderMathInElement(div, {
+      delimiters: [
+        { left: '$$', right: '$$', display: true },
+        { left: '$', right: '$', display: false }
+      ],
+      throwOnError: false
+    });
+  }
+
+  container.scrollTop = container.scrollHeight;
+}
+
+function showTyping(show) {
+  $('#typingIndicator').classList.toggle('hidden', !show);
+}
+
+function sendMessage() {
+  if (!state.homeworkActive) return;
+  const input = $('#chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  input.style.height = 'auto';
+  addMessage('user', text);
+  sendToAI(text, false);
+}
+
+function sendStuck() {
+  if (!state.homeworkActive) return;
+  addMessage('system', '🆘 你表示卡住了，老师会降低难度引导…');
+  sendToAI('我卡住了，请降低难度或给提示。', false);
+}
+
+function onInputKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function endHomework() {
+  if (!confirm('确定结束本次批改？')) return;
+
+  const teacher = state.selectedTeacher;
+  const teacherName = teacher ? teacher.name : '未知导师';
+  const namePure = teacher ? teacher.namePure : '';
+
+  // ===== RPG 收集物 =====
+  const isGuardian = teacher && teacher.orderRole === '守护导师';
+  const bondTarget = isGuardian ? namePure : getGuardianForDisciple(namePure);
+  const bondAmount = isGuardian ? 5 : 3;
+
+  const branch = addTreeBranch(namePure, '作业批改');
+  const bond = addBond(bondTarget, bondAmount);
+
+  let rewardLines = [];
+  if (branch) {
+    rewardLines.push('🌱 ' + branch.tree.icon + ' **' + branch.tree.name + '** 长出新枝 · 获得 **' + branch.product + '**' + (branch.isRare ? ' ✨' : ''));
+  }
+  if (bond) {
+    rewardLines.push('❤️ 与 **' + bondTarget + '** 的羁绊 **+' + bondAmount + '** （当前：' + bond.value + ' Lv.' + bond.level + '）');
+  }
+  if (rewardLines.length) {
+    addMessage('system', '🎁 ' + rewardLines.join('\n'));
+  }
+
+  // 生成 MD 会话记录
+  const dateStr = new Date().toLocaleString('zh-CN');
+  const lines = [
+    '---',
+    'title: 作业批改记录',
+    'teacher: ' + teacherName,
+    'date: ' + dateStr,
+    '---',
+    '',
+    '# 📝 作业批改记录',
+    '',
+    '**导师**：' + teacherName,
+    '',
+    '**时间**：' + dateStr,
+    '',
+    '---',
+    '',
+    '## 作业内容',
+    '',
+    state.homeworkContent,
+    '',
+    '---',
+    '',
+    '## 批改过程',
+    ''
+  ];
+
+  for (const msg of state.messages) {
+    if (msg.role === 'system') continue; // 跳过 system 消息
+    const speaker = msg.role === 'assistant' ? '**' + teacherName + '**' : '**学生**';
+    // 转义内容中的特殊 MD 字符
+    const content = msg.content.replace(/\n/g, '\n\n');
+    lines.push(speaker + '：');
+    lines.push('');
+    lines.push(content);
+    lines.push('');
+    lines.push('---');
+    lines.push('');
+  }
+
+  lines.push('_批改结束_');
+
+  const md = lines.join('\n');
+  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const safeName = teacherName.replace(/[<>:"/\\|?*]/g, '_');
+  const fileDate = new Date().toISOString().slice(0, 19).replace(/[:]/g, '-');
+  a.download = '作业批改_' + safeName + '_' + fileDate + '.md';
+  a.href = url;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  state.homeworkActive = false;
+  $('#chatInputArea').classList.add('hidden');
+  $('#startBtn').disabled = false;
+  $('#startBtn').classList.remove('hidden');
+  $('#statusText').textContent = '已结束 💾 已保存';
+  addMessage('system', '⏹️ 批改已结束，会话记录已保存为 MD 文件');
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
