@@ -180,6 +180,13 @@ async function init() {
 }
 
 // ===== 教材扫描 =====
+// ── 已知课程列表（硬编码兜底，GitHub Pages 最可靠的方案）──
+const KNOWN_COURSES = [
+  '高等数学上册', 'GEB', 'C++ Primer Plus',
+  '生命进化的跃升', '曼昆经济学原理',
+  'AI Science I Neural Networks and the Transformer 前七章'
+];
+
 let _fileIndex = null;
 async function getFileIndex() {
   if (_fileIndex) return _fileIndex;
@@ -187,30 +194,22 @@ async function getFileIndex() {
     const r = await fetch('file-index.json');
     if (r.ok) { _fileIndex = await r.json(); return _fileIndex; }
   } catch(e) {}
-  return {};
+  return _fileIndex || {};
 }
 
-// 在索引中模糊查找 key（兼容 encodeURI 编码差异）
-function _matchIndexKey(index, dirUrl) {
-  const target = decodeURIComponent(dirUrl).replace(/\/$/, '') + '/';
-  if (index[target]) return target;
-  const found = Object.keys(index).find(k =>
-    decodeURIComponent(k).replace(/\/$/, '') + '/' === target
-  );
-  if (found) console.log('[文件索引] 模糊匹配: "' + dirUrl + '" → "' + found + '"');
-  return found;
-}
-
-async function scanDir(dirUrl) {
-  // 优先从 file-index.json 读取
+// 从索引获取某个子目录的文件列表（或兜底 fetch）
+async function listDir(dirUrl) {
   const idx = await getFileIndex();
-  const matchedKey = _matchIndexKey(idx, dirUrl);
-  if (matchedKey && idx[matchedKey].length) {
-    // 统一去掉尾斜杠（和目录列表解析的结果一致）
-    return [...idx[matchedKey]].map(f => f.endsWith('/') ? f.slice(0, -1) : f);
+  if (idx && Object.keys(idx).length > 0) {
+    const target = decodeURIComponent(dirUrl).replace(/\/$/, '') + '/';
+    if (idx[target]) return [...idx[target]].map(f => f.endsWith('/') ? f.slice(0, -1) : f);
+    for (const [key, val] of Object.entries(idx)) {
+      if (val && val.length) {
+        const keyNorm = decodeURIComponent(key).replace(/\/$/, '') + '/';
+        if (keyNorm === target) return [...val].map(f => f.endsWith('/') ? f.slice(0, -1) : f);
+      }
+    }
   }
-
-  // 兜底：直接 fetch（仅本地服务器）
   try {
     const r = await fetch(dirUrl);
     if (r.ok) {
@@ -228,20 +227,30 @@ async function scanDir(dirUrl) {
 }
 
 async function scanCourses() {
-  const items = await scanDir('教材/');
   const courses = [];
-  for (const item of items) {
-    const subItems = await scanDir('教材/' + item + '/');
-    const mdFiles = subItems.filter(f => f.endsWith('.md'));
+  for (const courseName of KNOWN_COURSES) {
+    const files = await listDir('教材/' + courseName + '/');
+    const mdFiles = files.filter(f => f.endsWith('.md'));
     if (mdFiles.length) {
-      const chapters = parseChapters(mdFiles, item + '/');
-      courses.push({ courseName: item, coursePath: item + '/', chapters });
+      courses.push({ courseName, coursePath: courseName + '/', chapters: parseChapters(mdFiles, courseName + '/') });
+    }
+  }
+  // 尝试从索引补充额外的课程
+  const idx = await getFileIndex();
+  if (idx && Object.keys(idx).length) {
+    const extra = (idx['教材/'] || []).filter(f => f.endsWith('/')).map(f => f.replace(/\/$/, ''));
+    for (const dir of extra) {
+      if (!courses.find(c => c.courseName === dir)) {
+        const files = await listDir('教材/' + dir + '/');
+        const mdFiles = files.filter(f => f.endsWith('.md'));
+        if (mdFiles.length) courses.push({ courseName: dir, coursePath: dir + '/', chapters: parseChapters(mdFiles, dir + '/') });
+      }
     }
   }
   state.courses = courses;
   renderTree();
   if (!courses.length) {
-    $('#course-tree').innerHTML = '<div style="padding:20px;color:var(--text2);font-size:13px">未找到教材，请确认 教材/ 目录存在</div>';
+    $('#course-tree').innerHTML = '<div style="padding:20px;color:var(--text2);font-size:13px">未找到教材</div>';
   }
 }
 
