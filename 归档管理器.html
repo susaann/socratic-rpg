@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>归档管理器 — 视界探索者教团</title>
+<style>
+:root {
+  --bg: #faf6f0;
+  --card-bg: #fff;
+  --text: #2c2c2c;
+  --text-secondary: #888;
+  --border: #e0d8d0;
+  --accent: #8b6c4a;
+  --accent-light: #f0e8dc;
+  --danger: #c0392b;
+  --success: #27ae60;
+  --radius: 8px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg); color: var(--text); padding: 24px; line-height: 1.6;
+}
+h1 { font-size: 22px; margin-bottom: 4px; display: flex; align-items: center; gap: 10px; }
+.subtitle { color: var(--text-secondary); font-size: 14px; margin-bottom: 20px; }
+.card {
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 20px; margin-bottom: 16px;
+}
+.card h2 { font-size: 16px; margin-bottom: 12px; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.btn {
+  padding: 8px 18px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--card-bg); cursor: pointer; font-size: 13px;
+  transition: all 0.2s; font-family: inherit;
+}
+.btn:hover { background: var(--accent-light); border-color: var(--accent); }
+.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-primary:hover { opacity: 0.85; }
+.btn-danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+.btn-danger:hover { opacity: 0.85; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.stat-box { text-align: center; padding: 14px; background: var(--accent-light); border-radius: var(--radius); }
+.stat-box .num { font-size: 28px; font-weight: 700; color: var(--accent); }
+.stat-box .label { font-size: 12px; color: var(--text-secondary); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+th { font-weight: 600; color: var(--text-secondary); font-size: 12px; }
+tr:hover { background: var(--accent-light); }
+tr.dim { opacity: 0.4; }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; }
+.badge-class { background: #d4e6f1; color: #2c6e9c; }
+.badge-pet { background: #f9e79f; color: #7d6608; }
+.tag { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 11px; background: var(--border); }
+input[type="file"] { display: none; }
+.toast {
+  position: fixed; bottom: 24px; right: 24px; padding: 12px 20px;
+  border-radius: var(--radius); color: #fff; font-size: 14px;
+  z-index: 999; animation: fadeUp 0.3s ease;
+}
+.toast-ok { background: var(--success); }
+.toast-err { background: var(--danger); }
+.toast-info { background: var(--accent); }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.empty { text-align: center; padding: 40px; color: var(--text-secondary); }
+.empty .icon { font-size: 48px; margin-bottom: 12px; }
+#export-all-btn { position: relative; }
+progress { width: 100%; height: 6px; border-radius: 3px; margin-top: 8px; }
+progress::-webkit-progress-bar { background: var(--border); border-radius: 3px; }
+progress::-webkit-progress-value { background: var(--accent); border-radius: 3px; }
+.usage-bar { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--text-secondary); }
+.usage-bar progress { flex: 1; }
+.tab-bar { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 2px solid var(--border); }
+.tab { padding: 10px 20px; cursor: pointer; font-size: 14px; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; }
+.tab:hover { color: var(--accent); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.file-list { margin: 8px 0; font-size: 13px; }
+.file-list li { padding: 4px 0; list-style: inside; }
+</style>
+</head>
+<body>
+
+<h1>📦 归档管理器</h1>
+<p class="subtitle">导出/导入对话归档，释放 localStorage 空间，支持批量操作和自动去重</p>
+
+<div class="stat-grid" id="statGrid">
+  <div class="stat-box"><div class="num" id="statTotal">-</div><div class="label">归档总数</div></div>
+  <div class="stat-box"><div class="num" id="statClass">-</div><div class="label">课堂归档</div></div>
+  <div class="stat-box"><div class="num" id="statPet">-</div><div class="label">萌宠归档</div></div>
+  <div class="stat-box"><div class="num" id="statSize">-</div><div class="label">占用空间</div></div>
+</div>
+
+<div class="usage-bar">
+  <span>📊 localStorage 已用</span>
+  <progress id="lsUsageBar" value="0" max="100"></progress>
+  <span id="lsUsageText">0 KB / 5 MB</span>
+</div>
+
+<div class="tab-bar">
+  <div class="tab active" data-tab="export" onclick="switchTab('export')">📤 导出</div>
+  <div class="tab" data-tab="import" onclick="switchTab('import')">📥 导入</div>
+  <div class="tab" data-tab="manage" onclick="switchTab('manage')">⚙️ 管理</div>
+</div>
+
+<!-- ========== 导出 Tab ========== -->
+<div id="tab-export" class="tab-content active">
+  <div class="card">
+    <h2>📤 导出归档文件</h2>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">
+      选中的归档会导出为独立 JSON 文件（每个一条），下载到本地保存。
+    </p>
+    <div class="row" style="margin-bottom:12px">
+      <label><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"> 全选</label>
+      <button class="btn btn-primary" onclick="exportSelected()">📥 导出选中（逐个下载）</button>
+      <button class="btn btn-primary" id="export-all-btn" onclick="exportAllInOne()">📦 导出为单文件</button>
+      <button class="btn btn-sm" onclick="refreshList()">🔄 刷新</button>
+    </div>
+    <div id="exportList"><div class="empty"><div class="icon">📭</div>暂无归档数据</div></div>
+  </div>
+</div>
+
+<!-- ========== 导入 Tab ========== -->
+<div id="tab-import" class="tab-content">
+  <div class="card">
+    <h2>📥 导入归档文件</h2>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">
+      选择之前导出的 JSON 文件（可多选），系统会自动按 <code>id</code> 去重，不会重复导入。
+    </p>
+    <div class="row" style="margin-bottom:12px">
+      <button class="btn btn-primary" onclick="document.getElementById('importInput').click()">📂 选择文件</button>
+      <button class="btn" onclick="document.getElementById('importDirInput').click()">📁 选择文件夹</button>
+      <span id="importStatus" style="font-size:13px;color:var(--text-secondary)"></span>
+    </div>
+    <input type="file" id="importInput" multiple accept=".json" onchange="handleImport(event)">
+    <input type="file" id="importDirInput" webkitdirectory multiple accept=".json" onchange="handleImport(event)" style="display:none">
+    <div id="importResult" style="display:none">
+      <div id="importLog" class="card" style="background:var(--accent-light)"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🔗 批量加载到主应用</h2>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">
+      如果你需要把大量归档一次性加载进主应用，可以用这个导入脚本生成器——<br>
+      它会生成一段 JS 代码，粘贴到主应用的控制台即可批量加载。
+    </p>
+    <button class="btn btn-primary" onclick="generateLoadScript()">🔧 从已导入数据生成加载脚本</button>
+    <div id="loadScriptArea" style="display:none;margin-top:12px">
+      <p style="font-size:12px;color:var(--text-secondary);margin-bottom:6px">复制以下代码，在主应用控制台粘贴执行：</p>
+      <textarea id="loadScriptText" readonly style="width:100%;height:200px;font-family:monospace;font-size:12px;padding:10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg)"></textarea>
+      <button class="btn btn-sm" onclick="copyScript()" style="margin-top:6px">📋 复制</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 管理 Tab ========== -->
+<div id="tab-manage" class="tab-content">
+  <div class="card">
+    <h2>⚙️ 本地存储管理</h2>
+    <div class="row">
+      <button class="btn btn-danger" onclick="clearArchives()">🗑️ 清空所有归档</button>
+      <button class="btn" onclick="calcUsage()">📊 刷新用量</button>
+    </div>
+    <p style="font-size:12px;color:var(--text-secondary);margin-top:8px">
+      清空后不可恢复！建议先导出备份。
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>📋 所有 LS 键一览</h2>
+    <div id="lsKeyList"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ===== 工具函数 =====
+const LS_PREFIX = 'order_';
+const ARCHIVE_KEY = 'conversation_archives';
+
+function toast(msg, type = 'info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast toast-' + type;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3000);
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+function getArchives() {
+  try {
+    const raw = localStorage.getItem(LS_PREFIX + ARCHIVE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) { return []; }
+}
+
+function saveArchives(archives) {
+  localStorage.setItem(LS_PREFIX + ARCHIVE_KEY, JSON.stringify(archives));
+}
+
+function lsUsage() {
+  let total = 0;
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key.startsWith(LS_PREFIX)) {
+      const val = localStorage.getItem(key);
+      total += key.length + (val ? val.length : 0);
+    }
+  }
+  return total;
+}
+
+function formatDate(d) {
+  if (!d) return '?';
+  try { return new Date(d).toLocaleDateString('zh-CN'); } catch(e) { return String(d).slice(0,10); }
+}
+
+// ===== Tab 切换 =====
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelector('.tab[data-tab="' + name + '"]').classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ===== 统计 & 刷新 =====
+function refreshStats() {
+  const archives = getArchives();
+  const classArcs = archives.filter(a => a.type === 'class' || !a.type || a.type === 'pet');
+  const petArcs = archives.filter(a => a.type === 'pet');
+  const classCount = archives.filter(a => a.type === 'class' || !a.type).length;
+  const size = new Blob([JSON.stringify(archives)]).size;
+  document.getElementById('statTotal').textContent = archives.length;
+  document.getElementById('statClass').textContent = classCount;
+  document.getElementById('statPet').textContent = petArcs.length;
+  document.getElementById('statSize').textContent = formatSize(size);
+}
+
+function calcUsage() {
+  const used = lsUsage();
+  const maxBytes = 5 * 1024 * 1024;
+  const pct = Math.min(100, (used / maxBytes) * 100);
+  document.getElementById('lsUsageBar').value = pct;
+  document.getElementById('lsUsageText').textContent = formatSize(used) + ' / 5 MB';
+  document.getElementById('lsUsageBar').title = formatSize(used) + ' / 5 MB (' + pct.toFixed(1) + '%)';
+}
+
+function refreshList() {
+  refreshStats();
+  renderExportList();
+}
+
+// ===== 导出列表 =====
+function renderExportList() {
+  const archives = getArchives();
+  const container = document.getElementById('exportList');
+  if (!archives.length) {
+    container.innerHTML = '<div class="empty"><div class="icon">📭</div>暂无归档数据</div>';
+    return;
+  }
+  let html = `<div style="max-height:400px;overflow-y:auto"><table>
+    <thead><tr>
+      <th style="width:32px"></th>
+      <th style="width:50px">类型</th>
+      <th>教师 / 章节</th>
+      <th>日期</th>
+      <th style="width:70px">消息数</th>
+      <th style="width:40px"></th>
+    </tr></thead><tbody>`;
+  archives.forEach((a, i) => {
+    const type = a.type === 'pet' ? 'pet' : 'class';
+    const badge = type === 'pet' ? 'badge-pet' : 'badge-class';
+    const label = type === 'pet' ? '🐾 萌宠' : '📜 课堂';
+    const title = type === 'pet'
+      ? a.teacherName || '萌宠教学'
+      : (a.chapterNum ? '第' + a.chapterNum + '章 ' + (a.sectionNum || '') + ' ' + (a.sectionTitle || '') : (a.teacherName || '?'));
+    const msgs = (a.messages || []).length;
+    html += `<tr>
+      <td><input type="checkbox" class="arc-check" data-index="${i}" checked></td>
+      <td><span class="badge ${badge}">${label}</span></td>
+      <td>${title}</td>
+      <td>${a.dateFormatted || formatDate(a.date)}</td>
+      <td>${msgs}</td>
+      <td><button class="btn btn-sm" onclick="previewArchive(${i})">👁️</button></td>
+    </tr>`;
+  });
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+  document.getElementById('selectAll').checked = true;
+}
+
+function getSelectedIndices() {
+  const checks = document.querySelectorAll('.arc-check:checked');
+  return Array.from(checks).map(c => parseInt(c.dataset.index));
+}
+
+function toggleSelectAll() {
+  const checked = document.getElementById('selectAll').checked;
+  document.querySelectorAll('.arc-check').forEach(c => c.checked = checked);
+}
+
+function previewArchive(index) {
+  const archives = getArchives();
+  const a = archives[index];
+  if (!a) return;
+  const msgs = a.messages || [];
+  const lines = msgs.map(m => {
+    const who = m.role === 'assistant' ? '🤖 老师' : '🧑 学生';
+    const text = m.content.length > 200 ? m.content.substring(0, 200) + '…' : m.content;
+    return who + '：' + text;
+  }).join('\n\n');
+  alert('📅 ' + (a.dateFormatted || a.date) + '\n' +
+    '👤 ' + (a.teacherName || '?') + '\n' +
+    '💬 ' + msgs.length + ' 条消息\n\n' +
+    lines);
+}
+
+// ===== 导出 =====
+async function exportSelected() {
+  const indices = getSelectedIndices();
+  if (!indices.length) { toast('请先选择要导出的归档', 'err'); return; }
+  const archives = getArchives();
+  for (const idx of indices) {
+    const a = archives[idx];
+    const safeName = (a.teacherName || 'unknown').replace(/[<>:"/\\|?*]/g, '_');
+    const secLabel = a.type === 'pet' ? '萌宠'
+      : '第' + (a.chapterNum || '?') + '章_' + (a.sectionNum || '?') + '_' + (a.sectionTitle || '').replace(/[<>:"/\\|?*]/g, '_');
+    const dateStr = a.date ? a.date.slice(0,10) : 'nodate';
+    const filename = a.id + '_' + safeName + '_' + secLabel + '_' + dateStr + '.json';
+
+    const blob = new Blob([JSON.stringify(a, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    // 逐个下载，避免浏览器批量拦截
+    await new Promise(r => setTimeout(r, 300));
+  }
+  toast('✅ 已导出 ' + indices.length + ' 个归档文件', 'ok');
+}
+
+function exportAllInOne() {
+  const archives = getArchives();
+  if (!archives.length) { toast('没有可导出的归档', 'err'); return; }
+  const dateStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0,19);
+  const data = {
+    version: 1,
+    exportDate: new Date().toISOString(),
+    type: 'archive_bundle',
+    count: archives.length,
+    archives: archives
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = '归档全量备份_' + dateStr + '.json';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  toast('✅ 已导出 ' + archives.length + ' 个归档（单文件）', 'ok');
+}
+
+// ===== 导入 =====
+async function handleImport(event) {
+  const files = event.target.files;
+  if (!files || !files.length) return;
+  document.getElementById('importStatus').textContent = '⏳ 正在处理 ' + files.length + ' 个文件…';
+
+  const archives = getArchives();
+  const existingIds = new Set(archives.map(a => a.id).filter(Boolean));
+  let imported = 0, skipped = 0, errors = 0;
+  const log = [];
+
+  for (const file of files) {
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      // 处理单文件打包格式
+      let items = [];
+      if (data.type === 'archive_bundle' && Array.isArray(data.archives)) {
+        items = data.archives;
+      } else if (data.id && data.messages) {
+        items = [data];
+      } else if (Array.isArray(data)) {
+        items = data;
+      } else {
+        errors++;
+        log.push('⚠️ 跳过（格式无法识别）：' + file.name);
+        continue;
+      }
+
+      for (const item of items) {
+        if (!item.id || !item.messages) {
+          errors++;
+          continue;
+        }
+        if (existingIds.has(item.id)) {
+          skipped++;
+          continue;
+        }
+        archives.push(item);
+        existingIds.add(item.id);
+        imported++;
+      }
+    } catch (e) {
+      errors++;
+      log.push('❌ 解析失败：' + file.name + ' — ' + e.message);
+    }
+  }
+
+  saveArchives(archives);
+  refreshStats();
+  renderExportList();
+  calcUsage();
+
+  const resultDiv = document.getElementById('importResult');
+  const logDiv = document.getElementById('importLog');
+  resultDiv.style.display = 'block';
+  logDiv.innerHTML = '<strong>📋 导入结果</strong><br>'
+    + '✅ 新增 ' + imported + ' 条<br>'
+    + '⏭️ 跳过（已存在）' + skipped + ' 条<br>'
+    + (errors ? '❌ 失败 ' + errors + ' 个文件<br>' : '')
+    + (log.length ? '<br>' + log.map(l => '<span style="font-size:12px">' + l + '</span>').join('<br>') : '');
+  document.getElementById('importStatus').textContent = '✅ 处理完成：+ ' + imported + '，跳过 ' + skipped + ' 个重复';
+  event.target.value = '';
+  toast('✅ 成功导入 ' + imported + ' 条归档', 'ok');
+}
+
+// ===== 生成加载脚本 =====
+function generateLoadScript() {
+  const archives = getArchives();
+  if (!archives.length) {
+    toast('没有数据可生成脚本', 'err');
+    return;
+  }
+  const json = JSON.stringify(archives);
+  const script = `// 批量加载归档到主应用（去重安全）
+(function() {
+  const data = ${json};
+  const key = 'order_conversation_archives';
+  const existing = JSON.parse(localStorage.getItem(key) || '[]');
+  const existingIds = new Set(existing.map(a => a.id).filter(Boolean));
+  let added = 0, skipped = 0;
+  for (const item of data) {
+    if (!item.id) { skipped++; continue; }
+    if (existingIds.has(item.id)) { skipped++; continue; }
+    existing.push(item);
+    existingIds.add(item.id);
+    added++;
+  }
+  localStorage.setItem(key, JSON.stringify(existing));
+  console.log('✅ 已导入 ' + added + ' 条归档（跳过 ' + skipped + ' 条重复）');
+  // 如主应用已打开，刷新内存数据
+  if (typeof App !== 'undefined' && App.state) {
+    App.state.conversationArchives = existing;
+    if (typeof App.renderHistoryView === 'function') App.renderHistoryView();
+    console.log('🔄 已同步到 App.state 并刷新视图');
+  }
+  return '✅ 成功导入 ' + added + ' 条，跳过 ' + skipped + ' 条';
+})();`;
+
+  document.getElementById('loadScriptText').value = script;
+  document.getElementById('loadScriptArea').style.display = 'block';
+  toast('✅ 已生成加载脚本（' + archives.length + ' 条）', 'ok');
+}
+
+function copyScript() {
+  const textarea = document.getElementById('loadScriptText');
+  textarea.select();
+  document.execCommand('copy');
+  toast('📋 已复制到剪贴板', 'ok');
+}
+
+// ===== 管理 =====
+function clearArchives() {
+  if (!confirm('⚠️ 确定要清空所有对话归档吗？\n\n建议先导出备份！')) return;
+  if (!confirm('再次确认：清空后不可恢复！')) return;
+  saveArchives([]);
+  refreshStats();
+  renderExportList();
+  calcUsage();
+  toast('🗑️ 已清空所有归档', 'info');
+}
+
+function renderLsKeys() {
+  let html = '<table><thead><tr><th>键名</th><th>大小</th></tr></thead><tbody>';
+  let total = 0;
+  const keys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key.startsWith(LS_PREFIX)) {
+      const val = localStorage.getItem(key);
+      const size = key.length + val.length;
+      keys.push({ key, size });
+      total += size;
+    }
+  }
+  keys.sort((a, b) => b.size - a.size);
+  for (const { key, size } of keys) {
+    const pct = total ? (size / total * 100).toFixed(1) : 0;
+    html += `<tr><td style="font-family:monospace;font-size:12px">${key}</td><td>${formatSize(size)} (${pct}%)</td></tr>`;
+  }
+  html += `<tr style="font-weight:600"><td>合计 (${keys.length} 键)</td><td>${formatSize(total)}</td></tr>`;
+  html += '</tbody></table>';
+  document.getElementById('lsKeyList').innerHTML = html;
+}
+
+// ===== 初始化 =====
+function init() {
+  refreshStats();
+  calcUsage();
+  renderExportList();
+  renderLsKeys();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+
+</body>
+</html>
