@@ -75,21 +75,66 @@ select:focus, textarea:focus, input:focus { outline: none; border-color: var(--a
 .hidden { display: none !important; }
 /* 响应式 */
 @media (max-width: 768px) {
-  .container { flex-direction: column; }
-  .header { padding: 10px 12px; flex-wrap: wrap; gap: 6px; }
+  .container {
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    height: auto;
+  }
+  .header {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
   .header h1 { font-size: 15px; }
-  .header .sub { font-size: 11px; width: 100%; order: 10; margin: 0; }
-  .setup-panel { width: 100%; min-width: auto; max-height: 45vh; border-right: none; border-bottom: 1px solid var(--border); padding: 12px; }
+  .header .sub {
+    font-size: 11px;
+    width: 100%;
+    order: 10;
+    margin: 0;
+  }
+  .setup-panel {
+    width: 100%;
+    min-width: auto;
+    max-height: 45vh;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 12px;
+  }
   .teacher-grid { max-height: 140px; }
   .chat-header { padding: 8px 14px; font-size: 13px; }
-  .chat-messages { padding: 10px 14px; }
+  .chat-messages {
+    padding: 10px 14px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
   .msg { max-width: 92%; font-size: 13px; padding: 8px 12px; }
-  .chat-input-area { padding: 8px 12px; flex-wrap: wrap; gap: 6px; }
+  .chat-input-area {
+    padding: 8px 12px;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex-shrink: 0;
+  }
   .chat-input-area textarea { font-size: 13px; min-height: 36px; }
   .chat-input-area .btn { font-size: 12px; padding: 5px 10px; }
   .chat-input-area .btn-primary { padding: 5px 14px; }
-  body { overflow: hidden; height: 100vh; }
-  .container { height: calc(100vh - 52px); }
+
+  /* 新增：让聊天区也弹性撑满 */
+  body {
+    height: 100dvh;
+    overflow: hidden;
+  }
+  .chat-area {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .chat-header,
+  .chat-input-area {
+    flex-shrink: 0;
+  }
 }
 </style>
 </head>
