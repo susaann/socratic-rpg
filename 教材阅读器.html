@@ -249,7 +249,8 @@ async function scanDirectory(dirUrl) {
   const matchedKey = _matchIndexKey(index, dirUrl);
   if (matchedKey && index[matchedKey].length > 0) {
     console.log('[scanDirectory] 使用索引: ' + matchedKey + ' → ' + index[matchedKey].length + ' 个条目');
-    return [...index[matchedKey]];
+    // 统一去掉尾斜杠（和目录列表解析的结果一致）
+    return [...index[matchedKey]].map(f => f.endsWith('/') ? f.slice(0, -1) : f);
   }
 
   // 兜底：直接 fetch 目录（仅本地 Python 服务器有效）

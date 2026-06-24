@@ -205,7 +205,10 @@ async function scanDir(dirUrl) {
   // 优先从 file-index.json 读取
   const idx = await getFileIndex();
   const matchedKey = _matchIndexKey(idx, dirUrl);
-  if (matchedKey && idx[matchedKey].length) return [...idx[matchedKey]];
+  if (matchedKey && idx[matchedKey].length) {
+    // 统一去掉尾斜杠（和目录列表解析的结果一致）
+    return [...idx[matchedKey]].map(f => f.endsWith('/') ? f.slice(0, -1) : f);
+  }
 
   // 兜底：直接 fetch（仅本地服务器）
   try {
@@ -228,7 +231,7 @@ async function scanCourses() {
   const items = await scanDir('教材/');
   const courses = [];
   for (const item of items) {
-    const subItems = await scanDir('教材/' + encodeURIComponent(item) + '/');
+    const subItems = await scanDir('教材/' + item + '/');
     const mdFiles = subItems.filter(f => f.endsWith('.md'));
     if (mdFiles.length) {
       const chapters = parseChapters(mdFiles, item + '/');
