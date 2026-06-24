@@ -252,10 +252,15 @@ async function scanDirectory(dirUrl) {
 
   // 第2层：从 文件索引.json 读取（GitHub Pages 用）
   const index = await _loadFileIndex();
-  const key = dirUrl.replace(/\/$/, '') + '/';
-  if (index[key] && index[key].length > 0) {
-    console.log('[scanDirectory] 使用索引: ' + key + ' → ' + index[key].length + ' 个条目');
-    return [...index[key]];
+  // 索引 key 是明文中文，URL 可能被 encodeURI 编码，用解码版匹配
+  const keyDecoded = decodeURIComponent(dirUrl).replace(/\/$/, '') + '/';
+  if (index[keyDecoded] && index[keyDecoded].length > 0) {
+    console.log('[scanDirectory] 使用索引: ' + keyDecoded + ' → ' + index[keyDecoded].length + ' 个条目');
+    return [...index[keyDecoded]];
+  }
+  const keyRaw = dirUrl.replace(/\/$/, '') + '/';
+  if (keyRaw !== keyDecoded && index[keyRaw] && index[keyRaw].length > 0) {
+    return [...index[keyRaw]];
   }
 
   return [];
