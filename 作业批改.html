@@ -66,8 +66,20 @@ select:focus, textarea:focus, input:focus { outline: none; border-color: var(--a
 /* 响应式 */
 @media (max-width: 768px) {
   .container { flex-direction: column; }
-  .setup-panel { width: 100%; min-width: auto; max-height: 50vh; border-right: none; border-bottom: 1px solid var(--border); }
-  .msg { max-width: 90%; }
+  .header { padding: 10px 12px; flex-wrap: wrap; gap: 6px; }
+  .header h1 { font-size: 15px; }
+  .header .sub { font-size: 11px; width: 100%; order: 10; margin: 0; }
+  .setup-panel { width: 100%; min-width: auto; max-height: 45vh; border-right: none; border-bottom: 1px solid var(--border); padding: 12px; }
+  .teacher-grid { max-height: 140px; }
+  .chat-header { padding: 8px 14px; font-size: 13px; }
+  .chat-messages { padding: 10px 14px; }
+  .msg { max-width: 92%; font-size: 13px; padding: 8px 12px; }
+  .chat-input-area { padding: 8px 12px; flex-wrap: wrap; gap: 6px; }
+  .chat-input-area textarea { font-size: 13px; min-height: 36px; }
+  .chat-input-area .btn { font-size: 12px; padding: 5px 10px; }
+  .chat-input-area .btn-primary { padding: 5px 14px; }
+  body { overflow: hidden; height: 100vh; }
+  .container { height: calc(100vh - 52px); }
 }
 </style>
 </head>
@@ -141,6 +153,91 @@ select:focus, textarea:focus, input:focus { outline: none; border-color: var(--a
 <script src="lib/katex/katex.min.js"></script>
 <script src="lib/katex/auto-render.min.js"></script>
 <script>
+// ===== RPG 收集物系统（与主应用共享）=====
+const INITIAL_TREES = {
+  oak: { name: '坚韧之橡树', guardian: '格里高尔', icon: '🌳', branches: [], branchesCount: 0, phase: '幼苗期', items: { acorn: 0, goldenAcorn: 0 } },
+  willow: { name: '联结之柳树', guardian: '以实玛丽', icon: '🌿', branches: [], branchesCount: 0, phase: '幼苗期', items: { dew: 0, oceanTear: 0 } },
+  laurel: { name: '严谨之月桂', guardian: '十四行诗', icon: '🍃', branches: [], branchesCount: 0, phase: '幼苗期', items: { petal: 0, goldenFlower: 0 } }
+};
+
+function getTreePhase(count) {
+  if (count <= 0) return '幼苗期';
+  if (count <= 5) return '幼苗期';
+  if (count <= 15) return '成长期';
+  if (count <= 30) return '繁茂期';
+  return '圣树期';
+}
+
+function getBondLevel(value) {
+  if (value >= 100) return '传承';
+  if (value >= 50) return '知己';
+  if (value >= 20) return '信任';
+  return '相识';
+}
+
+function getTeacherTreeMap(teacherName) {
+  const map = {
+    '格里高尔': 'oak', '刻晴': 'oak',
+    '以实玛丽': 'willow', '三月七': 'willow',
+    '十四行诗': 'laurel', '甘雨': 'laurel'
+  };
+  return map[teacherName] || null;
+}
+
+function getTreeProduct(treeKey) {
+  const map = {
+    oak: { normal: '🟤 为什么橡子', rare: '✨ 金色橡子', key: 'acorn', rareKey: 'goldenAcorn' },
+    willow: { normal: '💧 记忆露水', rare: '🌊 海洋之泪', key: 'dew', rareKey: 'oceanTear' },
+    laurel: { normal: '🌸 逻辑花瓣', rare: '🌟 黄金比例花', key: 'petal', rareKey: 'goldenFlower' }
+  };
+  return map[treeKey];
+}
+
+function getGuardianForDisciple(discipleName) {
+  const map = { '刻晴': '格里高尔', '三月七': '以实玛丽', '甘雨': '十四行诗' };
+  return map[discipleName] || discipleName;
+}
+
+function loadRPGData() {
+  return {
+    trees: JSON.parse(localStorage.getItem(LS_PREFIX + 'rpg_trees') || JSON.stringify(INITIAL_TREES)),
+    bonds: JSON.parse(localStorage.getItem(LS_PREFIX + 'rpg_bonds') || '{"格里高尔":{"value":0,"level":"相识"},"以实玛丽":{"value":0,"level":"相识"},"十四行诗":{"value":0,"level":"相识"}}')
+  };
+}
+
+function saveRPGData(trees, bonds) {
+  localStorage.setItem(LS_PREFIX + 'rpg_trees', JSON.stringify(trees));
+  localStorage.setItem(LS_PREFIX + 'rpg_bonds', JSON.stringify(bonds));
+}
+
+function addTreeBranch(teacherName, title) {
+  const rpg = loadRPGData();
+  const treeKey = getTeacherTreeMap(teacherName);
+  if (!treeKey) return null;
+  const tree = rpg.trees[treeKey];
+  tree.branchesCount += 1;
+  tree.branches.push({ num: tree.branchesCount, title: title || '作业批改' });
+  tree.phase = getTreePhase(tree.branchesCount);
+  const product = getTreeProduct(treeKey);
+  const isRare = Math.random() < 0.15;
+  if (isRare) {
+    tree.items[product.rareKey] = (tree.items[product.rareKey] || 0) + 1;
+  } else {
+    tree.items[product.key] = (tree.items[product.key] || 0) + 1;
+  }
+  saveRPGData(rpg.trees, rpg.bonds);
+  return { tree, product: isRare ? product.rare : product.normal, isRare };
+}
+
+function addBond(name, amount) {
+  const rpg = loadRPGData();
+  if (!rpg.bonds[name]) { rpg.bonds[name] = { value: 0, level: '相识' }; }
+  rpg.bonds[name].value += amount;
+  rpg.bonds[name].level = getBondLevel(rpg.bonds[name].value);
+  saveRPGData(rpg.trees, rpg.bonds);
+  return rpg.bonds[name];
+}
+
 // ===== 状态 =====
 const LS_PREFIX = 'order_';
 const MODEL = { name: 'deepseek-chat', api: 'https://api.deepseek.com/v1/chat/completions' };
@@ -465,8 +562,30 @@ function onInputKey(e) {
 function endHomework() {
   if (!confirm('确定结束本次批改？')) return;
 
+  const teacher = state.selectedTeacher;
+  const teacherName = teacher ? teacher.name : '未知导师';
+  const namePure = teacher ? teacher.namePure : '';
+
+  // ===== RPG 收集物 =====
+  const isGuardian = teacher && teacher.orderRole === '守护导师';
+  const bondTarget = isGuardian ? namePure : getGuardianForDisciple(namePure);
+  const bondAmount = isGuardian ? 5 : 3;
+
+  const branch = addTreeBranch(namePure, '作业批改');
+  const bond = addBond(bondTarget, bondAmount);
+
+  let rewardLines = [];
+  if (branch) {
+    rewardLines.push('🌱 ' + branch.tree.icon + ' **' + branch.tree.name + '** 长出新枝 · 获得 **' + branch.product + '**' + (branch.isRare ? ' ✨' : ''));
+  }
+  if (bond) {
+    rewardLines.push('❤️ 与 **' + bondTarget + '** 的羁绊 **+' + bondAmount + '** （当前：' + bond.value + ' Lv.' + bond.level + '）');
+  }
+  if (rewardLines.length) {
+    addMessage('system', '🎁 ' + rewardLines.join('<br>'));
+  }
+
   // 生成 MD 会话记录
-  const teacherName = state.selectedTeacher ? state.selectedTeacher.name : '未知导师';
   const dateStr = new Date().toLocaleString('zh-CN');
   const lines = [
     '---',
