@@ -52,6 +52,16 @@ select:focus, textarea:focus, input:focus { outline: none; border-color: var(--a
 .msg.user { align-self: flex-end; background: var(--msg-user); }
 .msg.ai { align-self: flex-start; background: var(--msg-ai); border: 1px solid var(--border); }
 .msg.system { align-self: center; background: transparent; color: var(--text2); font-size: 12px; border: none; padding: 4px 12px; }
+
+/* 斜体渲染为灰色（白天模式） */
+.msg em {
+  color: #888;
+}
+
+/* 深色模式：使用更柔和的暖灰 */
+[data-theme="dark"] .msg em {
+  color: var(--text2); /* 即 #8a8075 */
+}
 .msg .katex { font-size: 1.1em; }
 .chat-input-area { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; gap: 8px; align-items: flex-end; flex-shrink: 0; }
 .chat-input-area textarea { flex: 1; resize: none; min-height: 40px; max-height: 120px; }
@@ -582,7 +592,7 @@ function endHomework() {
     rewardLines.push('❤️ 与 **' + bondTarget + '** 的羁绊 **+' + bondAmount + '** （当前：' + bond.value + ' Lv.' + bond.level + '）');
   }
   if (rewardLines.length) {
-    addMessage('system', '🎁 ' + rewardLines.join('<br>'));
+    addMessage('system', '🎁 ' + rewardLines.join('\n'));
   }
 
   // 生成 MD 会话记录
