@@ -670,6 +670,15 @@ textarea { resize: vertical; }
 /* 选中高亮 */
 .outline-section.active, .teacher-card.selected { transition: var(--transition); }
 
+/* ========== 全局加载遮罩 ========== */
+#loading-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  display: none;
+  align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.15);
+  /* 侧边栏可读性：遮罩透明度仅 15% */
+}
+
 /* 加载动画 */
 .loading-spinner {
   display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border);
@@ -874,6 +883,36 @@ textarea { resize: vertical; }
   padding: 12px;
   font-size: 15px;
   font-weight: 600;
+}
+/* 课后记录薄弱点——手动生成习题 */
+.battle-arena .ba-hw-records {
+  margin-top: 8px;
+  border-top: 1px dashed var(--border);
+  padding-top: 8px;
+}
+.battle-arena .ba-hw-records .ba-stuck-label {
+  margin-bottom: 6px;
+}
+.battle-arena .ba-hw-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 4px 0;
+  font-size: 11px;
+  gap: 8px;
+}
+.battle-arena .ba-hw-info {
+  color: var(--text-secondary);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.battle-arena .ba-hw-btn {
+  font-size: 10px;
+  padding: 2px 8px;
+  flex-shrink: 0;
 }
 .battle-arena .ba-options-row {
   display: flex;
@@ -1127,6 +1166,23 @@ textarea { resize: vertical; }
   }
   .battle-arena .ba-problem {
     font-size: 13px;
+    padding: 10px;
+  }
+  .battle-arena .ba-hw-row {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .battle-arena .ba-hw-info {
+    font-size: 10px;
+    white-space: normal;
+  }
+  .battle-arena .ba-hw-btn {
+    font-size: 10px;
+    padding: 4px 10px;
+    width: 100%;
+  }
+  .battle-arena .ba-stuck-btn {
+    font-size: 14px;
     padding: 10px;
   }
 }
