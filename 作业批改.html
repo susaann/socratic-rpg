@@ -464,12 +464,69 @@ function onInputKey(e) {
 
 function endHomework() {
   if (!confirm('确定结束本次批改？')) return;
+
+  // 生成 MD 会话记录
+  const teacherName = state.selectedTeacher ? state.selectedTeacher.name : '未知导师';
+  const dateStr = new Date().toLocaleString('zh-CN');
+  const lines = [
+    '---',
+    'title: 作业批改记录',
+    'teacher: ' + teacherName,
+    'date: ' + dateStr,
+    '---',
+    '',
+    '# 📝 作业批改记录',
+    '',
+    '**导师**：' + teacherName,
+    '',
+    '**时间**：' + dateStr,
+    '',
+    '---',
+    '',
+    '## 作业内容',
+    '',
+    state.homeworkContent,
+    '',
+    '---',
+    '',
+    '## 批改过程',
+    ''
+  ];
+
+  for (const msg of state.messages) {
+    if (msg.role === 'system') continue; // 跳过 system 消息
+    const speaker = msg.role === 'assistant' ? '**' + teacherName + '**' : '**学生**';
+    // 转义内容中的特殊 MD 字符
+    const content = msg.content.replace(/\n/g, '\n\n');
+    lines.push(speaker + '：');
+    lines.push('');
+    lines.push(content);
+    lines.push('');
+    lines.push('---');
+    lines.push('');
+  }
+
+  lines.push('_批改结束_');
+
+  const md = lines.join('\n');
+  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const safeName = teacherName.replace(/[<>:"/\\|?*]/g, '_');
+  const fileDate = new Date().toISOString().slice(0, 19).replace(/[:]/g, '-');
+  a.download = '作业批改_' + safeName + '_' + fileDate + '.md';
+  a.href = url;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
   state.homeworkActive = false;
   $('#chatInputArea').classList.add('hidden');
   $('#startBtn').disabled = false;
   $('#startBtn').classList.remove('hidden');
-  $('#statusText').textContent = '已结束';
-  addMessage('system', '⏹️ 批改已结束');
+  $('#statusText').textContent = '已结束 💾 已保存';
+  addMessage('system', '⏹️ 批改已结束，会话记录已保存为 MD 文件');
 }
 
 document.addEventListener('DOMContentLoaded', init);
