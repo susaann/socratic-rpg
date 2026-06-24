@@ -190,15 +190,24 @@ async function getFileIndex() {
   return {};
 }
 
+// 在索引中模糊查找 key（兼容 encodeURI 编码差异）
+function _matchIndexKey(index, dirUrl) {
+  const target = decodeURIComponent(dirUrl).replace(/\/$/, '') + '/';
+  if (index[target]) return target;
+  const found = Object.keys(index).find(k =>
+    decodeURIComponent(k).replace(/\/$/, '') + '/' === target
+  );
+  if (found) console.log('[文件索引] 模糊匹配: "' + dirUrl + '" → "' + found + '"');
+  return found;
+}
+
 async function scanDir(dirUrl) {
+  // 优先从 file-index.json 读取
   const idx = await getFileIndex();
-  // 先用解码后的 key 查索引（文件索引中的中文 key 是明文的）
-  const keyDecoded = decodeURIComponent(dirUrl).replace(/\/$/, '') + '/';
-  if (idx[keyDecoded] && idx[keyDecoded].length) return [...idx[keyDecoded]];
-  // 再用原始 URL 试一次
-  const keyRaw = dirUrl.replace(/\/$/, '') + '/';
-  if (keyRaw !== keyDecoded && idx[keyRaw] && idx[keyRaw].length) return [...idx[keyRaw]];
-  // 第2层：直接 fetch 目录（仅本地服务器有效）
+  const matchedKey = _matchIndexKey(idx, dirUrl);
+  if (matchedKey && idx[matchedKey].length) return [...idx[matchedKey]];
+
+  // 兜底：直接 fetch（仅本地服务器）
   try {
     const r = await fetch(dirUrl);
     if (r.ok) {

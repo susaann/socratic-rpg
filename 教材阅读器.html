@@ -212,7 +212,7 @@ function openMathPanel() {
   window.open('数学符号面板.html', '_blank');
 }
 
-// ── 文件索引缓存（用于 GitHub Pages 等无目录列表的环境）──
+// ── 文件索引加载 ──
 let _fileIndex = null;
 
 async function _loadFileIndex() {
@@ -229,9 +229,30 @@ async function _loadFileIndex() {
   return _fileIndex || {};
 }
 
-// ── Directory Scanner（支持 GitHub Pages，无需 node 或服务器）──
+// 在索引中模糊查找 key（兼容 encodeURI 编码差异）
+function _matchIndexKey(index, dirUrl) {
+  const target = decodeURIComponent(dirUrl).replace(/\/$/, '') + '/';
+  // 精确匹配
+  if (index[target]) return target;
+  // 模糊匹配：遍历所有 key，规范化后比对
+  const found = Object.keys(index).find(k =>
+    decodeURIComponent(k).replace(/\/$/, '') + '/' === target
+  );
+  if (found) console.log('[文件索引] 模糊匹配: "' + dirUrl + '" → "' + found + '"');
+  return found;
+}
+
+// ── Directory Scanner（支持 GitHub Pages）──
 async function scanDirectory(dirUrl) {
-  // 第1层：尝试 live fetch（本地 Python 服务器有目录列表）
+  // 优先从 文件索引.json 读取（GitHub Pages / 本地均可用）
+  const index = await _loadFileIndex();
+  const matchedKey = _matchIndexKey(index, dirUrl);
+  if (matchedKey && index[matchedKey].length > 0) {
+    console.log('[scanDirectory] 使用索引: ' + matchedKey + ' → ' + index[matchedKey].length + ' 个条目');
+    return [...index[matchedKey]];
+  }
+
+  // 兜底：直接 fetch 目录（仅本地 Python 服务器有效）
   try {
     const resp = await fetch(dirUrl);
     if (resp.ok) {
@@ -246,22 +267,9 @@ async function scanDirectory(dirUrl) {
         if (name === '.' || name === '..' || name === 'Parent Directory') continue;
         files.push(name);
       }
-      if (files.length > 0) return files; // 有效结果直接返回
+      if (files.length > 0) return files;
     }
   } catch(e) {}
-
-  // 第2层：从 文件索引.json 读取（GitHub Pages 用）
-  const index = await _loadFileIndex();
-  // 索引 key 是明文中文，URL 可能被 encodeURI 编码，用解码版匹配
-  const keyDecoded = decodeURIComponent(dirUrl).replace(/\/$/, '') + '/';
-  if (index[keyDecoded] && index[keyDecoded].length > 0) {
-    console.log('[scanDirectory] 使用索引: ' + keyDecoded + ' → ' + index[keyDecoded].length + ' 个条目');
-    return [...index[keyDecoded]];
-  }
-  const keyRaw = dirUrl.replace(/\/$/, '') + '/';
-  if (keyRaw !== keyDecoded && index[keyRaw] && index[keyRaw].length > 0) {
-    return [...index[keyRaw]];
-  }
 
   return [];
 }
