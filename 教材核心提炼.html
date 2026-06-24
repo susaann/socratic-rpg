@@ -233,7 +233,7 @@ async function scanCourses() {
     const files = await listDir('教材/' + courseName + '/');
     const mdFiles = files.filter(f => f.endsWith('.md'));
     if (mdFiles.length) {
-      courses.push({ courseName, coursePath: courseName + '/', chapters: parseChapters(mdFiles, courseName + '/') });
+      courses.push({ courseName, coursePath: courseName + '/', chapters: parseChapters(mdFiles, '教材/' + courseName + '/') });
     }
   }
   // 尝试从索引补充额外的课程
@@ -244,7 +244,7 @@ async function scanCourses() {
       if (!courses.find(c => c.courseName === dir)) {
         const files = await listDir('教材/' + dir + '/');
         const mdFiles = files.filter(f => f.endsWith('.md'));
-        if (mdFiles.length) courses.push({ courseName: dir, coursePath: dir + '/', chapters: parseChapters(mdFiles, dir + '/') });
+        if (mdFiles.length) courses.push({ courseName: dir, coursePath: dir + '/', chapters: parseChapters(mdFiles, '教材/' + dir + '/') });
       }
     }
   }
