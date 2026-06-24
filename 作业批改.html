@@ -187,44 +187,20 @@ async function init() {
   await loadHomeworkFiles();
 }
 
-// ===== 教师系统 =====
+// ===== 教师系统（直接从 roster.json + 各教师 .md 文件加载，无需目录列表）=====
 async function loadTeachers() {
   const container = $('#teacherList');
   try {
-    // 通过文件索引或直接 fetch
-    let files = [];
-    try {
-      const idxResp = await fetch('文件索引.json');
-      if (idxResp.ok) {
-        const idx = await idxResp.json();
-        files = (idx['老师/'] || []);
-      }
-    } catch(e) {}
-
-    // 兜底：直接尝试扫描目录
-    if (!files.length) {
-      const resp = await fetch('老师/');
-      if (resp.ok) {
-        const html = await resp.text();
-        const re = /<a href="([^"]+)"/g; let m;
-        while ((m = re.exec(html)) !== null) {
-          let n = m[1]; try { n = decodeURIComponent(n); } catch(e) {}
-          if (n !== '.' && n !== '..' && n !== 'Parent Directory') files.push(n);
-        }
-      }
-    }
-
-    // 加载 roster.json
+    // 加载 roster.json（指定文件，GH Pages 上正常 fetch）
     const rosterResp = await fetch('老师/roster.json');
-    const roster = rosterResp.ok ? await rosterResp.json() : [];
+    if (!rosterResp.ok) throw new Error('无法加载 roster.json (HTTP ' + rosterResp.status + ')');
+    const roster = await rosterResp.json();
 
-    // 加载每个教师的 .md
-    const mdFiles = files.filter(f => f.endsWith('.md'));
+    // 根据 roster 中的 id 逐个加载教师 .md 文件
     const teachers = [];
-    for (const f of mdFiles) {
-      const id = f.replace('.md', '');
-      const meta = roster.find(r => r.id === id) || {};
-      const resp = await fetch('老师/' + encodeURI(f));
+    for (const meta of roster) {
+      const id = meta.id;
+      const resp = await fetch('老师/' + encodeURIComponent(id) + '.md');
       const md = resp.ok ? await resp.text() : '';
       teachers.push({
         id,
@@ -240,7 +216,7 @@ async function loadTeachers() {
     state.teachers = teachers;
     renderTeachers();
   } catch(e) {
-    container.innerHTML = '<div style="color:var(--text2);font-size:12px">❌ 加载教师失败：' + e.message + '</div>';
+    container.innerHTML = '<div style="color:var(--text2);font-size:12px;padding:8px">❌ 加载教师失败：' + e.message + '</div>';
   }
 }
 
@@ -272,33 +248,29 @@ function selectTeacher(id) {
 
 // ===== 作业文件 =====
 async function loadHomeworkFiles() {
+  const sel = $('#hwFileSelect');
   try {
+    // 尝试从文件索引加载作业文件列表
     let files = [];
     try {
-      const idxResp = await fetch('文件索引.json');
-      if (idxResp.ok) {
-        const idx = await idxResp.json();
-        files = (idx['homework/待批改/'] || []);
+      const r = await fetch('文件索引.json');
+      if (r.ok) {
+        const idx = await r.json();
+        files = (idx['homework/待批改/'] || []).filter(f => f !== 'README.md');
       }
     } catch(e) {}
-    if (!files.length) {
-      const resp = await fetch('homework/待批改/');
-      if (resp.ok) {
-        const html = await resp.text();
-        const re = /<a href="([^"]+)"/g; let m;
-        while ((m = re.exec(html)) !== null) {
-          let n = m[1]; try { n = decodeURIComponent(n); } catch(e) {}
-          if (n.endsWith('.md') || n.endsWith('.txt')) files.push(n);
-        }
-      }
-    }
-    const sel = $('#hwFileSelect');
-    files.filter(f => f !== 'README.md').forEach(f => {
+    if (files.length) {
+      files.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f; opt.textContent = f;
+        sel.appendChild(opt);
+      });
+    } else {
       const opt = document.createElement('option');
-      opt.value = f; opt.textContent = f;
+      opt.value = ''; opt.textContent = '⚠️ 暂无可选文件，请直接粘贴';
       sel.appendChild(opt);
-    });
-  } catch(e) {}
+    }
+  } catch(e) { /* 文件列表非关键功能，静默失败 */ }
 }
 
 async function loadHomeworkFile() {

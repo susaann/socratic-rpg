@@ -4523,10 +4523,10 @@ ${knowledgeText}
     this.addMessage('user', text);
     this.state.chatHistory.push({ role: 'user', content: text });
     LS.set('chat_history', this.state.chatHistory);
-    // 响应时间追踪：超过120秒视为卡住
+    // 响应时间追踪：超过300秒视为卡住
     if (this.state._lastAIQuestionTime) {
       const delta = Math.round((Date.now() - this.state._lastAIQuestionTime) / 1000);
-      if (delta >= 120) {
+      if (delta >= 300) {
         const pos = this._getCoursePosition();
         this.state.chatHistory.push({
           role: 'user',
