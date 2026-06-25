@@ -108,6 +108,16 @@ a { color: var(--accent); text-decoration: none; }
 #result-area ul { padding-left: 20px; margin: 6px 0; }
 #result-area li { margin: 4px 0; }
 #result-area .q { font-weight: 600; color: var(--accent); }
+.result-actions {
+  display: none;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+.result-actions.show {
+  display: flex;
+}
 .loading-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.12); z-index: 100; align-items: center; justify-content: center; }
 .loading-overlay.show { display: flex; }
 .loading-box { background: var(--card); padding: 24px 36px; border-radius: var(--radius); box-shadow: 0 4px 20px rgba(0,0,0,0.15); text-align: center; }
@@ -155,8 +165,15 @@ a { color: var(--accent); text-decoration: none; }
   </div>
 
   <div id="content-area">
-    <div id="section-info"></div>
-    <div id="result-area"></div>
+<div id="section-info"></div>
+
+<!-- ===== 新增：操作栏 ===== -->
+<div id="result-actions" class="result-actions">
+  <button class="btn" onclick="copyResult()">📋 复制</button>
+  <button class="btn btn-primary" onclick="downloadResult()">⬇️ 下载 Markdown</button>
+</div>
+
+<div id="result-area"></div>
   </div>
 </div>
 
@@ -173,6 +190,7 @@ a { color: var(--accent); text-decoration: none; }
 const LS_PREFIX = 'order_';
 const MODEL = { name: 'deepseek-chat', api: 'https://api.deepseek.com/v1/chat/completions' };
 let state = { apiKey: '', courses: [], selectedSection: null };
+let lastRawResult = '';  // ← 新增：存储最新生成的 Markdown 原文
 
 // ===== 工具 =====
 const $ = s => document.querySelector(s);
@@ -337,6 +355,10 @@ function toggleChapter(el) {
 
 // ===== 选择章节 =====
 async function selectSection(coursePath, filename, displayName, courseName, chNum, secNum, title) {
+  // 清空旧教案和操作栏
+  lastRawResult = '';
+  document.getElementById('result-actions').classList.remove('show');
+  document.getElementById('result-area').innerHTML = '';
   // 高亮
   $$('.section-item').forEach(el => el.classList.remove('active'));
   event.target.classList.add('active');
@@ -441,7 +463,8 @@ async function extractCore() {
 
     const data = await resp.json();
     const result = data.choices[0].message.content;
-
+    lastRawResult = result;  // 保存原始 Markdown
+    document.getElementById('result-actions').classList.add('show');  // 显示操作栏
     // 渲染结果
     renderResult(result);
 
@@ -499,6 +522,47 @@ function showLoading(show, text) {
 
 // ===== 启动 =====
 document.addEventListener('DOMContentLoaded', init);
+// ===== 复制教案 =====
+function copyResult() {
+  if (!lastRawResult) return alert('没有可复制的内容');
+  navigator.clipboard.writeText(lastRawResult).then(() => {
+    alert('✅ 已复制到剪贴板！');
+  }).catch(() => {
+    // 降级方案（兼容非 HTTPS 环境）
+    const ta = document.createElement('textarea');
+    ta.value = lastRawResult;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    alert('✅ 已复制到剪贴板！');
+  });
+}
+
+// ===== 下载教案（.md文件） =====
+function downloadResult() {
+  if (!lastRawResult) return alert('没有可下载的内容');
+  // 生成安全的文件名
+  let baseName = '教案_提炼结果';
+  if (state.selectedSection) {
+    const course = state.selectedSection.courseName || '';
+    const chapter = state.selectedSection.displayName || '';
+    baseName = `教案_${course}_${chapter}`;
+  }
+  // 移除非法文件名字符
+  baseName = baseName.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, '_');
+  const filename = baseName + '.md';
+
+  const blob = new Blob([lastRawResult], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 </script>
 </body>
 </html>

@@ -507,7 +507,7 @@ ${state.selectedTeacher.fullMd || state.selectedTeacher.personaBrief || '一位�
     }
 
     const apiMessages = [
-      { role: 'system', content: systemPrompt },
+      { role: 'system', content: basePrompt },
       ...state.messages.map(m => ({ role: m.role, content: m.content }))
     ];
 
